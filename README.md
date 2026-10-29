@@ -30,7 +30,7 @@
 
 第二章：风区只在空中影响水平位移；蓝色弹性垫上长按跳跃可跳得更高。第三章：浅蓝冰面有滑行惯性，按反方向可刹车；箭头传送带只在落地时推动角色。均使用原来的方向键与跳跃键，无需新按键。
 
-线上试玩：https://isaac-cui.github.io/cat-walk/ 。第一关的设计预算与真人试玩记录见 PLAYTEST.md；真人试玩尚未完成。
+线上试玩：https://di3inep1.github.io/cat-walk/ 。源码仓库：https://github.com/di3Inep1/cat-walk 。第一关的设计预算与真人试玩记录见 PLAYTEST.md；真人试玩尚未完成。
 
 视觉由本地 Canvas 绘制，包括缓存的纸张颗粒、树林和曲线山丘；没有使用 AI 生成图或外部美术素材。音效由 Web Audio 合成，不包含背景音乐。
 
