@@ -1,0 +1,14 @@
+preview.png
+mobile-preview.png
+published-preview.png
+lesson-preview.png
+camera-preview.png
+kitten-preview.png
+chapters-preview.png
+harbor-preview.png
+rooftop-preview.png
+long-level-preview.png
+node_modules/
+.env
+.env.*
+*.log
