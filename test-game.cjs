@@ -75,7 +75,8 @@ assert.equal(run("$('levelGrid').children[1].disabled"),true);
 run("$('levelGrid').children[1].onclick()");
 assert.equal(run('levelIndex'),0);
 run('finish()');assert.equal(run('isLevelUnlocked(1)'),true);
-assert.equal(run('isLevelUnlocked(4)'),false);
+assert.equal(run('isLevelUnlocked(4)'),true,'Featured showcase is directly playable');
+assert.equal(run('isLevelUnlocked(5)'),false,'Showcase does not unlock its follow-up until completion');
 run('start(2);elapsed=40;finish();next()');assert.equal(run('levelIndex'),3);assert.equal(run('elapsed'),40);
 run('start(5);finish();next()');assert.equal(run('levelIndex'),6);
 const migration=run('migrateProgress(7,{8:true,9:true,10:true,16:true},17)');
@@ -118,11 +119,20 @@ for(const [width,height] of [[1140,641],[844,300],[350,263]]){
     run(`checkpoint=${index};spawn();for(let i=0;i<30;i++)updateCamera(STEP)`);
     assert.ok(run('camera.x>=0&&camera.x+camera.w<=W+.01'));
     assert.ok(run('cat.x>=camera.x&&cat.x+cat.w<=camera.x+camera.w'));
-    run('cat.ground=false;cat.y-=200;updateCamera(STEP)');
+    run('cat.ground=false;cat.y-=boards[cat.support].spring?200:116;updateCamera(STEP)');
     assert.ok(run('cat.y>=camera.y'),'High jump remains visible');
   }
 }
 for(let i=0;i<9;i++)run(`start(${i});draw()`);
+run('start(4)');
+assert.equal(run('level.showcase'),true);
+assert.equal(run('level.sections.length'),4);
+assert.equal(run('boards.filter(b=>b.spring).length'),2);
+assert.ok(run('level.checks.includes(6)&&level.checks.includes(11)'),'Both high jumps have a nearby checkpoint');
+for(const i of [6,11]){
+  run(`checkpoint=${i};spawn();buffer=.12;jumpHeld=true;for(let n=0;n<45;n++)update(STEP)`);
+  assert.ok(run(`cat.y+cat.h<boards[${i+1}].y`),'High bridge is reachable from pad');
+}
 run('start(0)');
 let nativePrevented=false;
 const finger={pointerId:55,pointerType:'touch',button:0,cancelable:true,preventDefault(){nativePrevented=true;}};

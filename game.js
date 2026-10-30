@@ -132,6 +132,28 @@ function mergeLevel(name,sources){
   out.check=out.checks[0];return out;
 }
 const LEVELS=MERGE_PLAN.map(([name,sources])=>mergeLevel(name,sources));
+// A bespoke continuous route replaces the three concatenated encounters in 2-2.
+// Collision tops and illustrated deck/crate tops share the same coordinates.
+function harborShowcase(){
+  const layout=[[0,450,180],[220,425,150],[410,400,250],[700,350,130],
+    [870,400,240],[1150,355,130],[1320,390,170],[1540,235,190],
+    [1770,260,160],[1970,225,160],[2170,275,210],[2420,330,140],
+    [2600,175,160],[2800,230,140],[2980,265,220]];
+  const pads=[6,11],route=layout.map((_,i)=>i);
+  return {name:'停船与高桥',showcase:true,scene:'harbor',palette:['#dce7e3','#9dbbc0','#7398a3'],
+    hint:'沿木栈道登上停泊的帆船，穿过前面的货仓。',sources:[11,12,13],
+    boards:layout,traits:layout.map((_,i)=>({source:i<4?11:i<7?12:13,local:i,spring:pads.includes(i)})),
+    fish:[[520,355],[1208,311],[1840,218],[2270,233],[2850,188]],
+    thorns:[],saws:[],winds:[],checks:[2,6,10,11],check:2,exit:14,finishX:3040,width:3200,
+    route,routeNext:Object.fromEntries(route.slice(0,-1).map(i=>[i,i+1])),
+    sections:[
+      {x:0,name:'停泊的船',hint:'先登上甲板。宽木板和路灯可以让你停稳。',source:'ship',board:0},
+      {x:840,name:'货仓小径',hint:'从木箱上绕过去。在蓝色软垫上按住跳跃，登上高桥。',source:'warehouse',board:4},
+      {x:1540,name:'海上的高桥',hint:'上来了。沿高处的桥向右走，远处就是灯塔。',source:'bridge',board:7},
+      {x:2390,name:'灯塔前的最后一跳',hint:'先在路灯边站稳，再借软垫跳向灯塔。',source:'lighthouse',board:11}
+    ]};
+}
+LEVELS[4]=harborShowcase();
 function worldIndex(i=levelIndex){return Math.floor(i/3);}
 function world(){return WORLDS[worldIndex()];}
 let keys = new Set(), levelIndex=0, level, boards, fish, checkpoint=-1, deaths=0, elapsed=0;
@@ -141,7 +163,7 @@ const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1};
 let cleared={};
 let available=new Set([0,3,6]);
 let continueLevel=0,selectedWorld=0;
-function isLevelUnlocked(i){return available.has(i);}
+function isLevelUnlocked(i){return available.has(i)||!!LEVELS[i]?.showcase;}
 let lessonSeen=new Set(), lastFallWasBridge=false;
 function teach(id,message){
   if(lessonSeen.has(id))return;
@@ -268,7 +290,7 @@ function update(dt){
         if(b.source===0)teach('lamp','路灯已点亮。前面的裂纹板，别停太久。');
         else notice('路灯点亮，跌倒后从这里继续。');hud();}
       if(levelIndex===0&&i===level.rescue)teach('rescue','接住你了。从右边的小台阶回去就好。');
-      if(i===exitIndex()&&cat.x>b.x+24){finish();return;}
+      if(i===exitIndex()&&cat.x>(level.finishX??b.x+24)){finish();return;}
     }
   }
   const hurt={x:cat.x+4,y:cat.y+4,w:cat.w-8,h:cat.h-5};
@@ -321,6 +343,14 @@ function paperGrain(c){
 }
 function drawChapterBackground(c){
   const W=960;
+  if(level.showcase){
+    c.fillStyle='#dce7e3';c.fillRect(0,0,W,H);oval(c,755,105,40,40,'#f5edcf');
+    c.fillStyle='#b5c9c5';c.beginPath();c.moveTo(0,285);c.quadraticCurveTo(240,175,480,276);c.quadraticCurveTo(720,210,960,283);c.lineTo(960,325);c.lineTo(0,325);c.fill();
+    c.fillStyle='#adcbd0';c.fillRect(0,300,W,240);
+    for(let i=0;i<85;i++){const x=rand()*W,y=310+rand()*230;line(c,[[x,y],[x+10+rand()*45,y-1]],i%2?'#dbe8e4':'#91b5bf',1);}
+    for(let i=0;i<5;i++){const x=130+i*170,y=250+rand()*30;line(c,[[x,y],[x+4,y+2],[x+8,y-1]],'#7f9b9e',1);}
+    paperGrain(c);return;
+  }
   if(level.scene==='harbor'){
     // Open water, cargo sheds, masts and mooring ropes replace all forest silhouettes.
     c.fillStyle='#b5d0d5';c.fillRect(0,280,W,260);
@@ -442,6 +472,44 @@ function drawCat(){
   line(ctx,[[8.4,-14.8],[12.3,-15.4]],'#b18b68',.55);
   ctx.restore();
 }
+function drawHarborLandmarks(){
+  // Ship and cargo shed are local landmarks, never repeated with background tiles.
+  ctx.fillStyle='#668c98';ctx.beginPath();ctx.moveTo(410,405);ctx.lineTo(660,405);
+  ctx.quadraticCurveTo(644,478,605,482);ctx.lineTo(455,482);ctx.quadraticCurveTo(425,464,410,405);ctx.fill();
+  line(ctx,[[430,426],[641,426]],'#e0d2ac',3);
+  for(const x of [470,515,560,605]){oval(ctx,x,445,7,7,'#d8cfac');oval(ctx,x,445,4,4,'#526f7c');}
+  line(ctx,[[525,400],[525,180]],'#7a7964',5);
+  ctx.fillStyle='#eee3be';ctx.beginPath();ctx.moveTo(533,195);ctx.lineTo(626,337);ctx.lineTo(533,337);ctx.fill();
+  line(ctx,[[525,190],[432,350],[525,350]],'#bfb596',1.4);
+  // An open-front warehouse. No opaque facade covers the traversable path.
+  ctx.fillStyle='#c6cec0';ctx.fillRect(850,210,650,290);
+  ctx.fillStyle='#dbe0cb';ctx.beginPath();ctx.moveTo(830,213);ctx.lineTo(1175,115);ctx.lineTo(1520,213);ctx.fill();
+  line(ctx,[[830,213],[1175,115],[1520,213]],'#829689',3);
+  for(const x of [865,1490])line(ctx,[[x,216],[x,510]],'#8d9d89',8);
+  ctx.fillStyle='#a9b5a0';ctx.fillRect(985,225,125,52);ctx.fillRect(1240,225,125,52);
+  ctx.fillStyle='#b8b28d';ctx.fillRect(1150,355,130,75);
+  line(ctx,[[1156,360],[1273,424],[1273,360],[1156,424],[1156,360]],'#8b927a',2);
+  line(ctx,[[1325,420],[1485,420]],'#899c8b',5);
+  // High bridge piers express the climb without inventing collision surfaces.
+  for(const i of [7,8,9,10]){
+    const b=boards[i];line(ctx,[[b.x+18,b.y+18],[b.x+18,535]],'#8ea5a3',6);
+    line(ctx,[[b.x+b.w-18,b.y+18],[b.x+b.w-18,535]],'#8ea5a3',6);
+    line(ctx,[[b.x+18,b.y+30],[b.x+b.w-18,510]],'#a3b6af',2);
+  }
+  // Lighthouse base sits exactly on the real exit platform.
+  const towerX=3058,baseY=265;
+  ctx.fillStyle='#eee3be';ctx.beginPath();ctx.moveTo(towerX-29,baseY);ctx.lineTo(towerX-19,87);
+  ctx.lineTo(towerX+19,87);ctx.lineTo(towerX+29,baseY);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#c28c75';ctx.fillRect(towerX-20,120,40,20);ctx.fillRect(towerX-24,188,48,20);
+  ctx.fillStyle='#f3d18a';ctx.fillRect(towerX-21,65,42,28);
+  ctx.fillStyle='#6a8790';ctx.beginPath();ctx.moveTo(towerX-31,65);ctx.lineTo(towerX,43);ctx.lineTo(towerX+31,65);ctx.fill();
+  const shimmer=.08+.03*Math.sin(time*1.5);
+  ctx.globalAlpha=shimmer;ctx.fillStyle='#fff0b1';ctx.beginPath();ctx.moveTo(towerX,78);
+  ctx.lineTo(towerX-330,10);ctx.lineTo(towerX-330,136);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle='#557681';ctx.font='12px "Microsoft YaHei",sans-serif';ctx.textAlign='center';
+  for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])ctx.fillText(label,x,y);
+  ctx.textAlign='start';
+}
 function draw(){
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
@@ -450,6 +518,7 @@ function draw(){
   if(shake)ctx.translate(Math.sin(time*90)*shake,Math.cos(time*70)*shake*.5);
   // Tiny drifting pollen is decorative; collision surfaces stay perfectly stable.
   for(let i=0;i<18;i++)oval(ctx,(i*83+time*5)%W,90+(i*41)%340+Math.sin(time+i)*6,1.3,1.3,'#f7edcb');
+  if(level.showcase)drawHarborLandmarks();
   for(const zone of level.winds){
     ctx.globalAlpha=.5;const direction=Math.sign(zone.speed);
     for(let i=0;i<18;i++){
@@ -462,9 +531,13 @@ function draw(){
   drawLessonSigns();
   for(const [x,y,w] of level.thorns){for(let j=0;j<w;j+=10){ctx.fillStyle='#a76050';ctx.beginPath();ctx.moveTo(x+j,y+14);ctx.quadraticCurveTo(x+j+3,y+3,x+j+7,y);ctx.lineTo(x+j+10,y+14);ctx.fill();line(ctx,[[x+j+3,y+12],[x+j+7,y+3]],'#6b493f');}}
   const end=boards[exitIndex()];
+  if(level.showcase){
+    ctx.fillStyle='#66838b';ctx.fillRect(3046,230,24,35);ctx.fillStyle='#efd58f';ctx.fillRect(3050,237,16,28);
+  }else{
   ctx.fillStyle='#957b5a';ctx.fillRect(end.x+36,end.y-53,32,53);
   ctx.fillStyle='#674c3f';ctx.beginPath();ctx.moveTo(end.x+28,end.y-51);ctx.lineTo(end.x+52,end.y-76);ctx.lineTo(end.x+76,end.y-51);ctx.fill();
   ctx.fillStyle='#edcc84';ctx.fillRect(end.x+44,end.y-36,17,36);oval(ctx,end.x+57,end.y-17,1.4,1.4,'#69503e');
+  }
   if(level.fake){line(ctx,[[565,391],[565,352]],'#7f7356',3);ctx.fillStyle='#efe1bb';ctx.fillRect(544,346,48,19);ctx.fillStyle='#7f7356';ctx.font='11px serif';ctx.fillText('终点？',548,360);}
   for(const s of level.saws){const x=s.x+Math.sin(time*1.8)*s.range;line(ctx,[[s.anchor,0],[x,s.y]],'#8d8b72',1);oval(ctx,x,s.y,s.r,s.r,'#b85d4d');line(ctx,[[x-3,s.y-6],[x+1,s.y-13],[x+7,s.y-12]],'#718556',2);}
   for(const f of fish)if(!f.got){const y=f.y+Math.sin(time*3+f.x)*3;oval(ctx,f.x,y,9,4,'#c2954e');ctx.fillStyle='#c2954e';ctx.beginPath();ctx.moveTo(f.x-7,y);ctx.lineTo(f.x-13,y-5);ctx.lineTo(f.x-13,y+5);ctx.fill();oval(ctx,f.x+5,y-1,1,1,'#66533c');}
@@ -497,7 +570,7 @@ function showLevels(chapter=worldIndex()){
     button.disabled=!isLevelUnlocked(i);
     const title=document.createElement('span'),status=document.createElement('small');
     title.textContent=(selectedWorld+1)+'-'+(i%3+1)+' '+item.name;
-    status.textContent=!isLevelUnlocked(i)?'未解锁':cleared[i]?'✓ 已走过':'可以出发';
+    status.textContent=!isLevelUnlocked(i)?'未解锁':cleared[i]?'✓ 已走过':item.showcase?'本轮精修 · 可试玩':'可以出发';
     button.appendChild(title);button.appendChild(status);
     button.onclick=()=>{if(isLevelUnlocked(i))start(i);};
     $('levelGrid').appendChild(button);
