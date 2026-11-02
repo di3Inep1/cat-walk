@@ -13,3 +13,7 @@
 .level-choice small{font-size:10px;letter-spacing:0;margin:0}.level-choice:disabled{opacity:.46;cursor:default;transform:none}.level-choice.done{border-color:#7a956a}
 @media(max-width:450px){.select-card{padding:14px}.select-head h2{font-size:18px}.level-grid{grid-template-columns:1fr;gap:6px}.level-choice{padding:10px 12px;min-height:64px;font-size:13px;gap:3px}.level-picker{padding:8px}.book{border-radius:16px;padding:7px}.stats{font-size:10px}.stats>span{padding:4px}.hud strong{font-size:16px}.hud small{font-size:9px}.touch .dpad{gap:8px}.touch{gap:8px}.touch .jump{width:86px}.world-tabs button{font-size:11px}}
 @media(orientation:landscape) and (max-height:500px){.level-picker{padding:7px}.select-card{padding:10px;max-height:100%;overflow:auto}.level-grid{grid-template-columns:repeat(3,1fr);gap:6px}.level-choice{padding:8px;min-height:64px;font-size:11px}.select-head h2{font-size:17px}.select-card p{margin:5px 0;font-size:10px}.world-tabs{margin-top:6px}}
+@media(max-width:450px) and (orientation:portrait){
+  .level-picker{position:fixed;inset:0;padding:20px 14px;align-items:center;z-index:20}
+  .select-card{max-height:calc(100dvh - 40px);overflow:auto}
+}

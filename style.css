@@ -5,12 +5,14 @@ main{max-width:1240px;margin:auto;padding:0 28px}header{height:90px;display:flex
 
 /* Quiet paper surfaces and a consistent type scale around the illustrated game. */
 body {
+  min-height: 100dvh;
   font-family: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   background-color: #eae6da;
   background-image: radial-gradient(ellipse at 50% 0, #fffaf0b3, transparent 70%);
   background-size: auto;
+  background-repeat: no-repeat;
 }
 header { min-height: 94px; height: auto; padding-block: 20px; gap: 24px; }
 .brand { font-size: 20px; font-weight: 700; letter-spacing: .04em; flex-shrink: 0; }
