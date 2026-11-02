@@ -19,9 +19,9 @@ canvas{touch-action:none}
   main{padding-bottom:max(12px,env(safe-area-inset-bottom))!important}
   nav button{min-height:44px}
   .touch{display:flex!important;align-items:center;gap:12px;padding:14px 4px 4px!important}
-  .touch button{width:64px;height:64px;border:1.5px solid #8b8066;border-radius:18px;box-shadow:0 4px 0 #c3b79b;font-size:24px}
-  .touch .jump{width:92px;margin-left:auto!important;background:#526e55;color:#fff6df;font-size:18px}
-  .touch .retry{width:55px;height:44px;font-size:12px;box-shadow:none;margin-left:5px}
+  .touch button{width:64px;height:64px;border:1px solid #8b897b55;border-radius:20px;box-shadow:0 3px 0 #b9b29d66;font-size:26px;background:#fbf7ed}
+  .touch .jump{width:100px;margin-left:auto!important;background:var(--green);color:#fff6df;font-size:16px;letter-spacing:.06em}
+  .touch .retry{width:55px;height:44px;font-size:12px;box-shadow:none;margin-left:5px;background:transparent}
   .mobile-tip{display:block;text-align:center;font-size:12px;line-height:1.7;color:#7a7869;margin:16px 12px 0}
   canvas{max-height:none!important}
   .card .legend{display:none}
@@ -36,13 +36,15 @@ canvas{touch-action:none}
 }
 @media(max-width:900px) and (orientation:landscape){
   main{padding:0 max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left))!important}
-  header,#app.immersive header,#app:fullscreen header{height:44px}
-  .brand{font-size:15px}.brand>span{font-size:25px}.brand small{display:none}
+  header,#app.immersive header,#app:fullscreen header{height:44px;min-height:44px;padding-block:0;flex-wrap:nowrap;gap:12px}
+  nav{width:auto}
+  .brand{font-size:15px;gap:8px}.brand>span{font-size:23px;width:30px;height:30px;border-radius:10px}.brand small{display:none}
   nav button{font-size:11px;padding:4px 10px;min-height:36px}
   .book{padding:5px;box-shadow:none}
   .hud{padding:0 8px 5px;min-height:34px}.hud>div:first-child{display:flex;align-items:center;gap:10px}
   .hud small{font-size:9px;letter-spacing:1px;margin:0}.hud strong{font-size:14px;margin:0}
   .stats{font-size:10px;gap:12px}.stats #timer{font-size:12px}
+  .stats>span{padding:2px 6px}
   canvas{height:max(150px,calc(100dvh - 90px - env(safe-area-inset-bottom)));max-height:none!important;aspect-ratio:auto}
   .below,.mobile-tip,footer{display:none}
   .touch{position:fixed;z-index:5;bottom:max(8px,env(safe-area-inset-bottom));left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));padding:0!important;pointer-events:none}

@@ -114,15 +114,35 @@ assert.ok(run('cat.vx>0&&cat.vy<0'));run('touchUp(2)');
 assert.equal(run("keys.has('ArrowRight')"),true);run('touchUp(1)');
 assert.equal(run("keys.has('ArrowRight')"),false);
 for(const [width,height] of [[1140,641],[844,300],[350,263]]){
-  run(`canvas.getBoundingClientRect=()=>({width:${width},height:${height}});resizeView();start(4)`);
-  for(const index of JSON.parse(run('JSON.stringify(level.route)'))){
-    run(`checkpoint=${index};spawn();for(let i=0;i<30;i++)updateCamera(STEP)`);
-    assert.ok(run('camera.x>=0&&camera.x+camera.w<=W+.01'));
-    assert.ok(run('cat.x>=camera.x&&cat.x+cat.w<=camera.x+camera.w'));
-    run('cat.ground=false;cat.y-=boards[cat.support].spring?200:116;updateCamera(STEP)');
-    assert.ok(run('cat.y>=camera.y'),'High jump remains visible');
+  run(`canvas.getBoundingClientRect=()=>({width:${width},height:${height}});resizeView()`);
+  for(let levelNumber=0;levelNumber<9;levelNumber++){
+    run(`start(${levelNumber})`);
+    for(const index of JSON.parse(run('JSON.stringify(level.route)'))){
+      run(`checkpoint=${index};spawn();for(let i=0;i<30;i++)updateCamera(STEP)`);
+      assert.ok(run('camera.x>=0&&camera.x+camera.w<=W+.01'));
+      assert.ok(run('cat.x>=camera.x&&cat.x+cat.w<=camera.x+camera.w'));
+      run('cat.ground=false;cat.y-=boards[cat.support].spring?200:116;updateCamera(STEP)');
+      assert.ok(run('cat.y>=camera.y'),'High jump remains visible');
+    }
   }
 }
+assert.equal(run('LEVELS.filter(item=>item.refined).length'),8);
+for(let i=0;i<9;i++){
+  run(`start(${i})`);
+  assert.equal(run('level.sections.length'),4,'Each route has four authored sections');
+  assert.ok(run('level.checks.every(i=>!boards[i].fragile&&!boards[i].ice&&!boards[i].belt)'),
+    'Lamps provide stable places to restart');
+  assert.ok(run('level.checks.every(i=>level.route.includes(i))'),'Every lamp is on the main route');
+}
+run('start(0)');
+assert.equal(run('boards.slice(0,6).filter(b=>b.fragile||b.spring||b.ice||b.belt).length'),1,
+  'Opening teaches only the single collapsing bridge');
+run('start(1);testTargets={4:level.route.length}');
+assert.ok(run('solve(0)'),'Optional orchard detour rejoins a continuous route to the exit');
+run("start(1);checkpoint=level.route.length;spawn();keys.add('ArrowRight');for(let i=0;i<20;i++)update(STEP);keys.clear()");
+assert.equal(run('fish[fish.length-1].got'),true,'Optional orchard fish can be collected');
+assert.ok(run('solve(level.route.length)'),'Collecting the bonus leaves a route back to the exit');
+run('testTargets={}');
 for(let i=0;i<9;i++)run(`start(${i});draw()`);
 run('start(4)');
 assert.equal(run('level.showcase'),true);

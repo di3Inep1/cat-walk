@@ -154,6 +154,62 @@ function harborShowcase(){
     ]};
 }
 LEVELS[4]=harborShowcase();
+const AUTHORED_ROUTES=[
+  {index:0, boards:[[0,450,180],[215,430,125],[375,405,170],[585,385,115],[735,420,85],[860,365,140],[1040,400,220],[1300,355,140],[1480,315,150],[1670,365,220],[1930,345,130],[2100,385,130],[2270,330,150],[2460,285,220]],
+    fragile:[3,11],checks:[2,6,9],rescue:[555,475,165],rescueNext:4,
+    sections:[[0,'溪边出发','先跳过小缺口，到路灯边歇脚。','tree'],[6,'树荫小径','经过旧桥后，可以在这里停一停。','arch'],[9,'林间旧桥','前面只有一块裂纹板，记得及时起跳。','tree'],[13,'树洞驿站','走到树洞门口，这一段就完成了。','gate']]},
+  {index:1,boards:[[0,450,210],[250,415,150],[440,370,180],[660,325,130],[830,365,210],[1080,330,150],[1270,385,160],[1470,350,210],[1720,310,130],[1890,360,160],[2090,330,210],[2340,375,150],[2530,320,150],[2720,280,220]],
+    checks:[2,4,7,10],bonus:[880,265,100],bonusNext:5,saw:{x:2250,y:300,r:12,range:40},
+    sections:[[0,'石阶入口','沿石阶向上，果园就在山坡后。','arch'],[4,'果园棚下','高处那条鱼干是可选的，可以从这里再跳一次。','shed'],[7,'果树走廊','在宽平台上看清下一处落脚点。','tree'],[10,'果园出口','等红果摆开，再跳向右边的拱门。','gate']]},
+  {index:2,boards:[[0,450,200],[240,410,140],[420,375,210],[670,350,140],[850,395,150],[1040,350,160],[1240,310,220],[1500,365,140],[1680,325,160],[1880,370,220],[2140,345,140],[2320,300,150],[2510,350,140],[2690,300,230]],
+    fragile:[3,10],checks:[2,6,9],saw:{x:2420,y:245,r:12,range:35},
+    sections:[[0,'雨后木道','潮湿的木桥有裂纹，先去路灯边站稳。','tree'],[6,'雨棚歇脚','到这里可以停下，后半段从宽平台起跳。','shed'],[9,'晚灯桥头','过旧桥后留意摆动的红果。','arch'],[13,'森林边界','前方有灯，走进拱门就到了。','gate']]},
+  {index:3,boards:[[0,450,210],[250,415,150],[440,375,210],[690,340,160],[890,385,150],[1080,350,220],[1340,310,150],[1530,360,150],[1720,325,220],[1980,370,160],[2180,335,150],[2370,380,200],[2610,330,150],[2800,285,220]],
+    checks:[2,5,8,11],winds:[{from:650,to:1040,speed:35},{from:1300,to:1700,speed:40},{from:1970,to:2560,speed:-30}],
+    sections:[[0,'风向标码头','走到风向标旁，再试试顺风中的跳跃。','windmill'],[5,'吊架通道','顺风会把你送得更远，接近落点时松开方向。','crane'],[8,'背风歇脚处','在这里停稳，下一段开始是逆风。','shed'],[11,'防波堤','逆风中按住跳跃，沿台阶走向航标。','beacon']]},
+  {index:5,boards:[[0,450,210],[250,415,160],[450,380,210],[700,410,140],[880,385,180],[1100,230,180],[1320,270,160],[1520,320,220],[1780,370,150],[1970,330,210],[2220,365,180],[2440,210,170],[2650,260,150],[2840,305,230]],
+    spring:[4,10],checks:[2,4,7,10],winds:[{from:1070,to:1490,speed:25},{from:2410,to:2830,speed:-20}],
+    sections:[[0,'渡口候船','先走到吊架下，蓝色软垫能送你上高桥。','boat'],[4,'顺风吊架','在软垫上长按跳跃，借顺风登高。','crane'],[7,'中途泊位','宽甲板能让你停稳，调整好再出发。','boat'],[10,'最后的航标','这一跳迎着微风，按住跳跃抵达航标。','beacon']]},
+  {index:6,boards:[[0,450,210],[250,420,160],[450,380,220],[710,355,210],[960,400,150],[1150,355,180],[1370,315,220],[1630,365,220],[1890,330,150],[2080,385,210],[2330,340,150],[2520,295,170],[2730,340,220]],
+    ice:[3,7],checks:[2,6,9],
+    sections:[[0,'月下天窗','先走上屋脊，浅蓝屋瓦才会打滑。','roof'],[2,'第一片薄霜','在冰面试着轻按反方向，停稳再跳。','chimney'],[6,'第二段屋脊','两段冰面之间有普通屋瓦，可以休息。','roof'],[9,'月台暖窗','薄霜已经走过了，沿普通屋瓦抵达暖窗。','window']]},
+  {index:7,boards:[[0,450,210],[250,415,160],[450,380,210],[700,355,170],[910,400,160],[1110,355,210],[1360,310,150],[1550,365,170],[1760,335,210],[2010,380,160],[2210,335,180],[2430,290,210],[2680,340,230]],
+    belts:{3:50,6:-40,9:45},checks:[2,5,8,11],
+    sections:[[0,'钟楼后街','箭头标在会移动的屋瓦上，普通屋瓦可以停。','roof'],[2,'顺向屋瓦','让箭头带你走一小段，再跳到下一块屋瓦。','clock'],[5,'逆向屋瓦','逆着箭头会走慢些，起跳后就离开它了。','chimney'],[8,'钟声回廊','先站稳，再借顺向屋瓦走向钟楼门口。','clock']]},
+  {index:8,boards:[[0,450,210],[250,415,160],[450,375,210],[700,350,210],[950,395,160],[1150,350,220],[1410,310,160],[1610,365,180],[1830,330,220],[2090,375,160],[2290,340,160],[2490,295,220],[2750,330,150],[2940,280,240]],
+    ice:[3],belts:{6:-35},fragile:[10],checks:[2,5,8,11],
+    sections:[[0,'最后的夜路','先经过薄霜，暖灯还在屋脊的另一边。','roof'],[5,'烟囱之间','在普通屋瓦站稳，再越过逆向屋瓦。','chimney'],[8,'旧瓦桥头','只剩一块有裂纹的旧瓦，及时跳过去。','arch'],[11,'回家的灯','挑战都走过了，沿最后几级屋瓦回家。','window']]}
+];
+for(const plan of AUTHORED_ROUTES){
+  const original=LEVELS[plan.index];
+  const route=plan.boards.map((_,i)=>i);
+  const layout=plan.boards.map(b=>[...b]);
+  const traits=layout.map((_,i)=>({source:plan.index===0&&i<6?0:-1,local:i,
+    fragile:plan.fragile?.includes(i),delay:plan.index===0?1.15:.95,
+    spring:plan.spring?.includes(i),ice:plan.ice?.includes(i),belt:plan.belts?.[i]||0}));
+  const routeNext=Object.fromEntries(route.slice(0,-1).map(i=>[i,i+1]));
+  let rescue;
+  if(plan.rescue){
+    rescue=layout.length;
+    layout.push(plan.rescue);
+    traits.push({source:-1});
+    routeNext[rescue]=plan.rescueNext;
+  }
+  const fish=plan.sections.slice(1).map(([i])=>[layout[i][0]+layout[i][2]*.65,layout[i][1]-42]);
+  if(plan.bonus){
+    const bonusIndex=layout.length;
+    layout.push(plan.bonus);
+    traits.push({source:-1});
+    routeNext[bonusIndex]=plan.bonusNext;
+    fish.push([plan.bonus[0]+50,plan.bonus[1]-30]);
+  }
+  const exit=route.length-1,end=layout[exit];
+  LEVELS[plan.index]={...original,refined:true,boards:layout,traits,route,routeNext,rescue,
+    exit,finishX:end[0]+end[2]-55,width:end[0]+end[2],checks:plan.checks,check:plan.checks[0],fish,
+    winds:plan.winds||[],saws:plan.saw?[{...plan.saw,anchor:plan.saw.x}]:[],thorns:[],
+    hint:plan.sections[0][2],
+    sections:plan.sections.map(([i,name,hint,kind],section)=>({x:layout[i][0],board:i,name,hint,kind,source:'refined-'+section}))};
+}
 function worldIndex(i=levelIndex){return Math.floor(i/3);}
 function world(){return WORLDS[worldIndex()];}
 let keys = new Set(), levelIndex=0, level, boards, fish, checkpoint=-1, deaths=0, elapsed=0;
@@ -510,6 +566,70 @@ function drawHarborLandmarks(){
   for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])ctx.fillText(label,x,y);
   ctx.textAlign='start';
 }
+function drawRouteLandmark(kind,x,y,destination=false){
+  ctx.save();ctx.translate(x,y);
+  const ink=worldIndex()===2?'#c3bcc1':'#748878';
+  ctx.strokeStyle=ink;ctx.lineWidth=1.5;
+  if(kind==='tree'||kind==='gate'||kind==='arch'){
+    ctx.fillStyle='#9b9f79';ctx.beginPath();ctx.moveTo(-55,0);ctx.lineTo(-48,-95);
+    ctx.quadraticCurveTo(0,-135,48,-95);ctx.lineTo(55,0);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle=worldIndex()===2?'#6e7794':'#c6d3ac';
+    ctx.beginPath();ctx.moveTo(-29,0);ctx.lineTo(-27,-65);ctx.quadraticCurveTo(0,-99,27,-65);ctx.lineTo(29,0);ctx.fill();
+    if(kind==='tree')for(const [lx,ly,rx] of [[-52,-112,44],[0,-145,53],[55,-110,46]])oval(ctx,lx,ly,rx,29,'#8fa77f');
+    else line(ctx,[[-61,-95],[0,-125],[61,-95]],'#7b8b6d',5);
+  }else if(kind==='shed'||kind==='roof'||kind==='window'||kind==='clock'||kind==='chimney'){
+    const night=worldIndex()===2,top=kind==='clock'?-160:-105;
+    ctx.fillStyle=night?'#7f88a2':'#c2c7a7';ctx.fillRect(-62,top,124,-top);
+    ctx.fillStyle=night?'#626e8d':'#879b88';ctx.beginPath();ctx.moveTo(-75,top);ctx.lineTo(0,top-40);ctx.lineTo(75,top);ctx.fill();
+    if(kind==='clock'){
+      oval(ctx,0,top+41,27,27,'#e8ddbb');line(ctx,[[0,top+21],[0,top+41],[16,top+48]],'#6e7488',2.5);
+    }else{
+      ctx.fillStyle='#e7cd91';ctx.fillRect(-36,top+25,25,35);ctx.fillRect(12,top+25,25,35);
+      line(ctx,[[-24,top+25],[-24,top+60]],ink,2);line(ctx,[[24,top+25],[24,top+60]],ink,2);
+    }
+    if(kind==='chimney'||kind==='roof'){
+      ctx.fillStyle='#8990a4';ctx.fillRect(30,top-48,20,40);
+      line(ctx,[[26,top-48],[54,top-48]],'#b6b5b3',4);
+    }
+  }else if(kind==='boat'){
+    ctx.fillStyle='#6f94a1';ctx.beginPath();ctx.moveTo(-85,12);ctx.lineTo(85,12);ctx.lineTo(55,64);ctx.lineTo(-55,64);ctx.closePath();ctx.fill();
+    line(ctx,[[0,0],[0,-145]],'#84927e',4);
+    ctx.fillStyle='#eee1b9';ctx.beginPath();ctx.moveTo(5,-135);ctx.lineTo(62,-38);ctx.lineTo(5,-38);ctx.fill();
+    for(const lx of [-40,0,40])oval(ctx,lx,32,6,6,'#dccfa8');
+  }else if(kind==='crane'||kind==='windmill'){
+    line(ctx,[[0,0],[0,-165]],'#7c9298',7);
+    if(kind==='crane'){
+      line(ctx,[[-48,-162],[92,-162],[0,-127]],'#7c9298',4);
+      line(ctx,[[86,-160],[86,-50],[77,-42]],'#9b9d87',2);
+    }else{
+      oval(ctx,0,-145,7,7,'#d3c89f');
+      for(let i=0;i<4;i++){const angle=time*.4+i*Math.PI/2;line(ctx,[[Math.cos(angle)*9,-145+Math.sin(angle)*9],[Math.cos(angle)*49,-145+Math.sin(angle)*49]],'#afc3bd',9);}
+      line(ctx,[[4,-95],[65,-95],[55,-100]],'#e1d6af',3);
+    }
+  }else if(kind==='beacon'){
+    ctx.fillStyle='#e4dbbb';ctx.beginPath();ctx.moveTo(-26,0);ctx.lineTo(-15,-155);ctx.lineTo(15,-155);ctx.lineTo(26,0);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#b98977';ctx.fillRect(-19,-90,38,18);
+    ctx.fillStyle='#f2d58f';ctx.fillRect(-21,-175,42,25);
+    line(ctx,[[-28,-176],[0,-195],[28,-176]],'#6c8a96',5);
+  }
+  if(destination){
+    ctx.fillStyle=worldIndex()===2?'#e8c98b':'#ebd9ab';ctx.fillRect(-13,-36,26,36);
+    line(ctx,[[-13,0],[-13,-36],[13,-36],[13,0]],ink,1.4);oval(ctx,7,-16,1.4,1.4,'#827251');
+  }
+  ctx.restore();
+}
+function drawAuthoredLandmarks(){
+  for(const section of level.sections){
+    const b=boards[section.board],x=b.x+b.w*.65;
+    if(x<camera.x-220||x>camera.x+camera.w+220)continue;
+    const isEnd=section.board===exitIndex();
+    drawRouteLandmark(section.kind,isEnd?level.finishX+12:x,b.y,isEnd);
+    ctx.fillStyle=worldIndex()===2?'#eee0bb':'#546e63';ctx.font='12px "Microsoft YaHei",sans-serif';
+    ctx.fillText(section.name+' →',b.x+8,b.y-195);
+  }
+  const end=boards[exitIndex()];
+  if(!level.sections.some(s=>s.board===exitIndex()))drawRouteLandmark(level.sections[level.sections.length-1].kind,level.finishX+12,end.y,true);
+}
 function draw(){
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
@@ -519,6 +639,7 @@ function draw(){
   // Tiny drifting pollen is decorative; collision surfaces stay perfectly stable.
   for(let i=0;i<18;i++)oval(ctx,(i*83+time*5)%W,90+(i*41)%340+Math.sin(time+i)*6,1.3,1.3,'#f7edcb');
   if(level.showcase)drawHarborLandmarks();
+  if(level.refined)drawAuthoredLandmarks();
   for(const zone of level.winds){
     ctx.globalAlpha=.5;const direction=Math.sign(zone.speed);
     for(let i=0;i<18;i++){
@@ -533,7 +654,7 @@ function draw(){
   const end=boards[exitIndex()];
   if(level.showcase){
     ctx.fillStyle='#66838b';ctx.fillRect(3046,230,24,35);ctx.fillStyle='#efd58f';ctx.fillRect(3050,237,16,28);
-  }else{
+  }else if(!level.refined){
   ctx.fillStyle='#957b5a';ctx.fillRect(end.x+36,end.y-53,32,53);
   ctx.fillStyle='#674c3f';ctx.beginPath();ctx.moveTo(end.x+28,end.y-51);ctx.lineTo(end.x+52,end.y-76);ctx.lineTo(end.x+76,end.y-51);ctx.fill();
   ctx.fillStyle='#edcc84';ctx.fillRect(end.x+44,end.y-36,17,36);oval(ctx,end.x+57,end.y-17,1.4,1.4,'#69503e');
