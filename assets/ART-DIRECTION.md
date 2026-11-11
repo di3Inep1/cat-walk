@@ -5,10 +5,15 @@
 - cat-gouache-v1.png，1536 × 1024，站立、三个奔跑姿态、上升、下落。动作脚底对齐，碰撞盒由游戏逻辑决定。
 - forest-dawn-v1.jpg，1536 × 1024，第一章三关使用，慢速视差与镜像衔接。
 - woodland-atlas-v1.png，1536 × 1024，草地、裂纹木桥、棚顶、树洞、路灯、鱼干。草地和木桥的可踩顶面与游戏坐标对齐。
+- signs-gouache-v1.png，1536 × 1024，上半张为撕边纸签，下半张为浅木提示牌。文字实时绘制，中央拉伸而边缘保持比例，全部章节共用。
 
 猫猫、路灯与鱼干应用于全部章节。第一章作为绘本美术样板，码头和屋顶的背景与主要建筑仍使用原有画法。
 
 ## 实际生成提示词
+
+### 提示牌
+
+Use case: illustration-story. Production blank sign backgrounds for an original polished hand-painted woodland cat platform game, gouache watercolor and colored-pencil storybook art. Make a genuine TRANSPARENT PNG sprite atlas, 1536x1024 aspect 3:2, exactly ONE column and TWO equal 1536x512 rows. Two long horizontal blank plaques, each wholly within its row with clear transparent padding, centered. Top row: an ivory handmade paper wayfinding label, softly irregular torn edges, very subtle honey-colored edge wear and tiny paper fibers, one small muted sage leaf tucked under its far left edge. Bottom row: a weathered pale oak signboard with a lightly ivory-washed CENTER for readable dark Chinese text later, gentle irregular carved outline, minimal wood grain confined mostly to edges, one tiny copper nail at each end. Both plaques occupy x=80..1456, row-relative y=100..410, straight level horizontal top and bottom, wide rectangular shapes with natural uneven edges rather than UI rounded rectangles. Center 75 percent of EACH plaque must be completely EMPTY, uniform very pale warm cream, quiet and high contrast, no busy texture under later text. Restrained shallow hand-painted depth, no large drop shadow, no posts, no ropes, no lettering, no numbers, no icons or arrows, no captions, no watermark. Both match a warm ivory/sage/ochre woodland gouache world. True alpha outside each independent plaque, nothing between rows.
 
 ### 猫猫
 

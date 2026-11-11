@@ -6,7 +6,7 @@ const illustrations={};
 let illustrationLoading=false;
 function loadIllustrations(){
   if(typeof Image==='undefined')return;
-  const files={cat:'assets/cat-gouache-v1.png',forest:'assets/forest-dawn-v1.jpg',environment:'assets/woodland-atlas-v1.png'};
+  const files={cat:'assets/cat-gouache-v1.png',forest:'assets/forest-dawn-v1.jpg',environment:'assets/woodland-atlas-v1.png',signs:'assets/signs-gouache-v1.png'};
   let pending=Object.keys(files).length,failed=0;
   illustrationLoading=true;$('primary').disabled=true;
   $('assetStatus').hidden=false;$('assetStatus').textContent='正在翻开绘本…';
@@ -630,17 +630,25 @@ let sceneLabels=[];
 function sceneLabel(text,x,y,{tone='guide',center=false,important=false}={}){
   sceneLabels.push({text,x,y,tone,center,important});
 }
+function drawPaintedSign(x,y,width,height,wood){
+  const image=illustrations.signs;
+  const top=wood?600:130,sourceHeight=wood?345:335,cap=Math.min(height*.48,width/3);
+  // Stretch only the quiet center, retaining the torn edges, leaf and copper nails.
+  ctx.drawImage(image,18,top,180,sourceHeight,x,y,cap,height);
+  ctx.drawImage(image,198,top,1140,sourceHeight,x+cap,y,width-cap*2,height);
+  ctx.drawImage(image,1338,top,180,sourceHeight,x+width-cap,y,cap,height);
+}
 function drawSceneLabels(){
   // Keep text readable in CSS pixels, independently of the near-follow camera.
-  const size=Math.max(10,14*camera.w/(camera.cssWidth||camera.w));
-  const padding=size*.65,height=size*2;
+  const size=Math.max(10,15*camera.w/(camera.cssWidth||camera.w));
+  const padding=size*1.15,height=size*2.15;
   const themes=[['#fff4d8','#34462f','#908263'],['#f3f5e7','#294957','#7f9696'],['#28334b','#fff1d0','#a5b5cd']];
   const obstacles=[{x:cat.x-8,y:cat.y-8,w:cat.w+16,h:cat.h+16},
     ...boards.map(b=>({x:b.x,y:b.y-7,w:b.w,h:30})),
     ...fish.filter(f=>!f.got).map(f=>({x:f.x-18,y:f.y-12,w:36,h:24})),
     ...level.saws.map(s=>({x:s.x+Math.sin(time*1.8)*s.range-s.r-6,y:s.y-s.r-6,w:s.r*2+12,h:s.r*2+12}))];
   const placed=[];
-  ctx.save();ctx.font='600 '+size+'px "Microsoft YaHei",sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.save();ctx.font='600 '+size+'px "KaiTi","STKaiti","Kaiti SC","Microsoft YaHei",serif';ctx.textAlign='left';ctx.textBaseline='middle';
   for(const label of sceneLabels.sort((a,b)=>Number(b.important)-Number(a.important))){
     if(label.x<camera.x||label.x>camera.x+camera.w||label.y<camera.y-32||label.y>camera.y+camera.h+32)continue;
     const width=ctx.measureText(label.text).width+padding*2;
@@ -652,9 +660,13 @@ function drawSceneLabels(){
       ![...obstacles,...placed].some(area=>overlap({x,y,w:width,h:height},area)));
     if(y===undefined)continue;
     const [paper,ink,border]=label.tone==='warning'?['#fff0d5','#713b29','#b4805d']:themes[worldIndex()];
-    ctx.fillStyle=paper;ctx.strokeStyle=border;ctx.lineWidth=1;
-    ctx.beginPath();ctx.roundRect(x,y,width,height,Math.min(5,size*.4));ctx.fill();ctx.stroke();
-    ctx.fillStyle=ink;ctx.fillText(label.text,x+padding,y+height/2);
+    if(illustrations.signs)drawPaintedSign(x,y,width,height,label.important);
+    else{
+      ctx.fillStyle=paper;ctx.strokeStyle=border;ctx.lineWidth=1;
+      ctx.beginPath();ctx.roundRect(x,y,width,height,Math.min(5,size*.4));ctx.fill();ctx.stroke();
+    }
+    ctx.fillStyle=illustrations.signs?(label.tone==='warning'?'#783d2a':'#403c2d'):ink;
+    ctx.fillText(label.text,x+padding,y+height*.51);
     placed.push({x:x-4,y:y-4,w:width+8,h:height+8});
   }
   ctx.restore();
