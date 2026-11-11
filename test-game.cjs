@@ -273,6 +273,9 @@ assert.equal(switching.imageRequests.length,7,'Returning to a chapter uses the l
 const moonStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],continueLevel:6})},true);
 assert.equal(moonStart.imageRequests.length,6,'Direct rooftop entry loads shared art and its three images');
 assert.ok(moonStart.imageRequests.every(img=>!img.url.includes('forest')&&!img.url.includes('harbor')));
+const oldPage=boot({},true),oldLookup=oldPage.context.document.getElementById;
+oldPage.context.document.getElementById=id=>id==='artLoading'?null:oldLookup(id);
+assert.doesNotThrow(()=>{for(const img of oldPage.imageRequests)img.onload();oldPage.run('start(6)')},'A cached older page can load the updated game script');
 const missingArt=boot({},true);
 for(const img of missingArt.imageRequests)img.onerror();
 missingArt.run('next();draw()');

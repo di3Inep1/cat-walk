@@ -20,7 +20,8 @@ function updateIllustrationStatus(){
   illustrationLoading=required.some(key=>illustrationStates[key]==='loading');
   const failed=required.some(key=>illustrationStates[key]==='error');
   $('primary').disabled=illustrationLoading;
-  $('artLoading').hidden=!illustrationLoading||state==='menu';
+  const loadingOverlay=$('artLoading');
+  if(loadingOverlay)loadingOverlay.hidden=!illustrationLoading||state==='menu';
   $('assetStatus').hidden=!illustrationLoading&&!failed;
   $('assetStatus').textContent=illustrationLoading?'正在翻开绘本…':failed?'部分插画未载入，仍可继续散步。':'';
   if(wasLoading&&!illustrationLoading)clearInput();
