@@ -1,19 +1,23 @@
 // Run the real game logic with a minimal DOM, without replacing its physics.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+function boot(stored={}){
 const pen=new Proxy({}, {get:()=>()=>{}});
 const elements=new Map(),handlers=new Map(),windowHandlers=new Map();
 let elementSequence=0;
 function element(id){if(!elements.has(id))elements.set(id,{hidden:id==='selectPanel',textContent:'',style:{},children:[],appendChild(child){this.children.push(child)},replaceChildren(){this.children=[]},classList:{add(){},remove(){}},setAttribute(){},focus(){},getContext:()=>pen,addEventListener(type,fn){handlers.set(id+':'+type,fn)}});return elements.get(id);}
 const controls=['ArrowLeft','ArrowRight','Space'].map(key=>Object.assign(element('control-'+key),{dataset:{key},setPointerCapture(){throw new Error('Capture unavailable')}}));
-let selectionCleared=false;
-const context=vm.createContext({document:{getElementById:element,createElement:type=>element(type+(++elementSequence)),querySelectorAll:()=>controls,addEventListener(){}},window:{addEventListener(type,fn){windowHandlers.set(type,fn)},getSelection:()=>({rangeCount:1,removeAllRanges(){selectionCleared=true}})},localStorage:{getItem:()=>null,setItem(){}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},Math,console});
+const selection={cleared:false},documentHandlers=new Map();
+const context=vm.createContext({document:{getElementById:element,createElement:type=>element(type+(++elementSequence)),querySelectorAll:()=>controls,addEventListener(type,fn){documentHandlers.set(type,fn)}},window:{addEventListener(type,fn){windowHandlers.set(type,fn)},getSelection:()=>({rangeCount:1,removeAllRanges(){selection.cleared=true}})},localStorage:{getItem:key=>stored[key]??null,setItem(key,value){stored[key]=value}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},Math,console});
 vm.runInContext(fs.readFileSync('game.js','utf8'),context);
 const run=code=>vm.runInContext(code,context);
+return {context,run,handlers,windowHandlers,documentHandlers,selection,stored};
+}
+const {context,run,handlers,windowHandlers,selection}=boot();
 // Find an actual continuous route using walking and held jumps, no teleporting.
 run(`
-function snapshot(){return JSON.stringify({cat,boards,fish,checkpoint,time,state,deathDelay,deaths,elapsed,collectedTotal});}
+function snapshot(){return JSON.stringify({cat,boards,fish,checkpoint,time,state,deathDelay,deaths,elapsed,records,runs});}
 let testTargets={};
-function restore(text){const s=JSON.parse(text);Object.assign(cat,s.cat);boards=s.boards;fish=s.fish;checkpoint=s.checkpoint;time=s.time;state=s.state;deathDelay=s.deathDelay;deaths=s.deaths;elapsed=s.elapsed;collectedTotal=s.collectedTotal;keys.clear();buffer=0;coyote=.1;jumpHeld=false;}
+function restore(text){const s=JSON.parse(text);Object.assign(cat,s.cat);boards=s.boards;fish=s.fish;checkpoint=s.checkpoint;time=s.time;state=s.state;deathDelay=s.deathDelay;deaths=s.deaths;elapsed=s.elapsed;records=s.records;runs=s.runs;keys.clear();buffer=0;coyote=.1;jumpHeld=false;}
 function solve(index,route=[]){
   const saved=snapshot();
   for(const wait of [0,30,60,90,120,180,240]){
@@ -74,10 +78,10 @@ assert.equal(run("$('levelGrid').children.length"),3);
 assert.equal(run("$('levelGrid').children[1].disabled"),true);
 run("$('levelGrid').children[1].onclick()");
 assert.equal(run('levelIndex'),0);
-run('finish()');assert.equal(run('isLevelUnlocked(1)'),true);
+run("$('selectPanel').hidden=true;pause();finish()");assert.equal(run('isLevelUnlocked(1)'),true);
 assert.equal(run('isLevelUnlocked(4)'),true,'Featured showcase is directly playable');
 assert.equal(run('isLevelUnlocked(5)'),false,'Showcase does not unlock its follow-up until completion');
-run('start(2);elapsed=40;finish();next()');assert.equal(run('levelIndex'),3);assert.equal(run('elapsed'),40);
+run('runs={};start(2);elapsed=40;finish();next()');assert.equal(run('levelIndex'),3);assert.equal(run('elapsed'),0);
 run('start(5);finish();next()');assert.equal(run('levelIndex'),6);
 const migration=run('migrateProgress(7,{8:true,9:true,10:true,16:true},17)');
 assert.ok(migration.available.includes(0)&&migration.available.includes(1)&&migration.available.includes(2));
@@ -140,8 +144,11 @@ assert.equal(run('boards.slice(0,6).filter(b=>b.fragile||b.spring||b.ice||b.belt
 run('start(1);testTargets={4:level.route.length}');
 assert.ok(run('solve(0)'),'Optional orchard detour rejoins a continuous route to the exit');
 run("start(1);checkpoint=level.route.length;spawn();keys.add('ArrowRight');for(let i=0;i<20;i++)update(STEP);keys.clear()");
-assert.equal(run('fish[fish.length-1].got'),true,'Optional orchard fish can be collected');
+assert.equal(run('fish[fish.length-2].got'),true,'Optional orchard fish can be collected');
 assert.ok(run('solve(level.route.length)'),'Collecting the bonus leaves a route back to the exit');
+run("start(1);checkpoint=level.route.length+1;spawn();keys.add('ArrowRight');for(let i=0;i<20;i++)update(STEP);keys.clear()");
+assert.equal(run('fish[fish.length-1].got'),true,'The second roof reward is collectible');
+assert.ok(run('solve(level.route.length+1)'),'The upper route rejoins the main path');
 run('testTargets={}');
 for(let i=0;i<9;i++)run(`start(${i});draw()`);
 run('start(4)');
@@ -157,7 +164,7 @@ run('start(0)');
 let nativePrevented=false;
 const finger={pointerId:55,pointerType:'touch',button:0,cancelable:true,preventDefault(){nativePrevented=true;}};
 handlers.get('control-ArrowRight:pointerdown')(finger);
-assert.equal(nativePrevented,true);assert.equal(selectionCleared,true);
+assert.equal(nativePrevented,true);assert.equal(selection.cleared,true);
 assert.equal(run("keys.has('ArrowRight')"),true,'Capture failure must not break input');
 windowHandlers.get('pointerup')(finger);
 assert.equal(run("keys.has('ArrowRight')"),false,'Release outside button clears input');
@@ -165,8 +172,67 @@ for(const key of ['app:selectstart','app:dragstart','control-ArrowRight:touchsta
   nativePrevented=false;handlers.get(key)(finger);assert.equal(nativePrevented,true,key+' cancels native gesture');
 }
 const stored={};context.localStorage.setItem=(key,value)=>{stored[key]=value;};
-run('available=new Set([0,1,3,6]);cleared={0:true};continueLevel=1;save()');
+run("state='menu';available=new Set([0,1,3,6]);cleared={0:true};continueLevel=1;save()");
 assert.equal(JSON.parse(stored['tiny-trouble-long-v1']).continueLevel,1);
 assert.ok(!('tiny-trouble-cleared' in stored),'Legacy progress must not be overwritten');
-console.log('PASS: 9 long routes, every lamp, relocated mechanics, migration, chapters, touch, long camera');
+// Reload the entire game to exercise browser persistence through the normal entry points.
+const session=boot();
+session.run(`start(1);available.add(1);
+cat.x=boards[2].x+25;cat.y=boards[2].y-cat.h-1;cat.vy=60;cat.ground=false;
+for(let n=0;n<5;n++)update(STEP);`);
+assert.equal(session.run('checkpoint'),2,'Landing on a lamp saves it');
+session.run('cat.x=fish[0].x-12;cat.y=fish[0].y-15;cat.vy=0;update(STEP);elapsed=37.2;deaths=2;pause()');
+const reload=boot(session.stored);
+assert.equal(reload.run('checkpoint'),2);
+assert.equal(reload.run('state'),'menu');
+reload.run('next()');
+assert.equal(reload.run('cat.support'),2);
+assert.equal(reload.run('elapsed'),37.2);
+assert.equal(reload.run('deaths'),2);
+assert.equal(reload.run('fish[0].got'),true);
+assert.equal(reload.run('keys.size'),0);
+assert.equal(reload.run('jumpHeld'),false);
+reload.run('start(3);start(1,true)');
+assert.equal(reload.run('checkpoint'),2,'Switching chapters preserves the previous run');
+reload.run('finish()');
+assert.equal(reload.run('records[1].bestTime'),37.2);
+assert.equal(reload.run('records[1].bestDeaths'),2);
+assert.equal(reload.run('resumableRun(1)'),null,'Completion removes the suspended run');
+reload.run('start(1);elapsed=50;deaths=0;fish[1].got=true;finish()');
+assert.equal(reload.run('records[1].bestTime'),37.2,'Slower run keeps the best time');
+assert.equal(reload.run('records[1].bestDeaths'),0,'Least falls is an independent record');
+assert.equal(reload.run('records[1].fish.length'),2,'Collections accumulate across runs');
+reload.run('start(1);elapsed=20;deaths=3;finish();finish()');
+assert.equal(reload.run('records[1].bestTime'),20);
+assert.equal(reload.run('records[1].bestDeaths'),0);
+reload.run('start(4);checkpoint=6;elapsed=10;save();pause();');
+reload.run("$('secondary').onclick()");
+assert.equal(reload.run('levelIndex'),4,'Restart acts on the current level');
+assert.equal(reload.run('checkpoint'),-1);
+assert.equal(reload.run('elapsed'),0);
+reload.run("touchDown({dataset:{key:'ArrowRight'},setAttribute(){}},8);touchDown({dataset:{key:'Space'},setAttribute(){}},9)");
+reload.context.document.hidden=true;
+reload.documentHandlers.get('visibilitychange')();
+assert.equal(reload.run('state'),'pause');
+assert.equal(reload.run('keys.size+touchPointers.size'),0,'Backgrounding releases every finger');
+reload.run('pause();elapsed=22');
+reload.windowHandlers.get('pagehide')();
+assert.equal(boot(reload.stored).run('elapsed'),22,'Page exit saves the latest counters');
+const bad=JSON.parse(reload.stored['tiny-trouble-long-v1']);
+bad.runs[4].checkpoint=999;
+const invalid=boot({'tiny-trouble-long-v1':JSON.stringify(bad)});
+assert.equal(invalid.run('checkpoint'),-1,'Invalid checkpoints fall back to the start');
+assert.equal(invalid.run('records[1].bestTime'),20,'Bad run data does not destroy records');
+bad.runs[4].checkpoint=6;bad.runs[4].revision='old layout';
+assert.equal(boot({'tiny-trouble-long-v1':JSON.stringify(bad)}).run('checkpoint'),-1);
+const old=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,1,3,6],cleared:{0:true},continueLevel:1})});
+assert.equal(old.run('continueLevel'),1);
+assert.equal(old.run('cleared[0]'),true);
+assert.equal(old.run('Object.keys(records).length'),0,'Old clears do not invent scores');
+assert.equal(boot({'tiny-trouble-long-v1':'broken json'}).run('levelIndex'),0);
+const blocked=boot();
+blocked.context.localStorage.setItem=()=>{throw new Error('Storage blocked')};
+blocked.run('start(0);pause()');
+assert.equal(blocked.run("$('saveNote').textContent.includes('无法保存')"),true);
+console.log('PASS: 9 routes, every lamp, orchard detour, camera, reload/resume, per-level records, legacy saves and mobile lifecycle');
 

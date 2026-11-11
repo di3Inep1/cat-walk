@@ -159,8 +159,8 @@ const AUTHORED_ROUTES=[
     fragile:[3,11],checks:[2,6,9],rescue:[555,475,165],rescueNext:4,
     sections:[[0,'溪边出发','先跳过小缺口，到路灯边歇脚。','tree'],[6,'树荫小径','经过旧桥后，可以在这里停一停。','arch'],[9,'林间旧桥','前面只有一块裂纹板，记得及时起跳。','tree'],[13,'树洞驿站','走到树洞门口，这一段就完成了。','gate']]},
   {index:1,boards:[[0,450,210],[250,415,150],[440,370,180],[660,325,130],[830,365,210],[1080,330,150],[1270,385,160],[1470,350,210],[1720,310,130],[1890,360,160],[2090,330,210],[2340,375,150],[2530,320,150],[2720,280,220]],
-    checks:[2,4,7,10],bonus:[880,265,100],bonusNext:5,saw:{x:2250,y:300,r:12,range:40},
-    sections:[[0,'石阶入口','沿石阶向上，果园就在山坡后。','arch'],[4,'果园棚下','高处那条鱼干是可选的，可以从这里再跳一次。','shed'],[7,'果树走廊','在宽平台上看清下一处落脚点。','tree'],[10,'果园出口','等红果摆开，再跳向右边的拱门。','gate']]},
+    checks:[2,4,7,10],bonus:[[880,265,140],[1060,235,130]],bonusNext:6,saw:{x:2250,y:300,r:12,range:40},
+    sections:[[0,'石阶入口','沿石阶向上，果园就在山坡后。','arch'],[4,'果园棚下','沿低处木道走很安全，也可以跳上棚顶找两条鱼干。','shed'],[7,'果树走廊','两条路都到了这里。在宽平台上歇歇脚。','tree'],[10,'果园出口','等红果摆开，再跳向右边的拱门。','gate']]},
   {index:2,boards:[[0,450,200],[240,410,140],[420,375,210],[670,350,140],[850,395,150],[1040,350,160],[1240,310,220],[1500,365,140],[1680,325,160],[1880,370,220],[2140,345,140],[2320,300,150],[2510,350,140],[2690,300,230]],
     fragile:[3,10],checks:[2,6,9],saw:{x:2420,y:245,r:12,range:35},
     sections:[[0,'雨后木道','潮湿的木桥有裂纹，先去路灯边站稳。','tree'],[6,'雨棚歇脚','到这里可以停下，后半段从宽平台起跳。','shed'],[9,'晚灯桥头','过旧桥后留意摆动的红果。','arch'],[13,'森林边界','前方有灯，走进拱门就到了。','gate']]},
@@ -197,11 +197,13 @@ for(const plan of AUTHORED_ROUTES){
   }
   const fish=plan.sections.slice(1).map(([i])=>[layout[i][0]+layout[i][2]*.65,layout[i][1]-42]);
   if(plan.bonus){
-    const bonusIndex=layout.length;
-    layout.push(plan.bonus);
-    traits.push({source:-1});
-    routeNext[bonusIndex]=plan.bonusNext;
-    fish.push([plan.bonus[0]+50,plan.bonus[1]-30]);
+    const bonusStart=layout.length;
+    plan.bonus.forEach((board,index)=>{
+      layout.push(board);
+      traits.push({source:-1,bonus:true});
+      routeNext[bonusStart+index]=index<plan.bonus.length-1?bonusStart+index+1:plan.bonusNext;
+      fish.push([board[0]+board[2]*.5,board[1]-30]);
+    });
   }
   const exit=route.length-1,end=layout[exit];
   LEVELS[plan.index]={...original,refined:true,boards:layout,traits,route,routeNext,rescue,
@@ -214,11 +216,40 @@ function worldIndex(i=levelIndex){return Math.floor(i/3);}
 function world(){return WORLDS[worldIndex()];}
 let keys = new Set(), levelIndex=0, level, boards, fish, checkpoint=-1, deaths=0, elapsed=0;
 let state='menu', time=0, deathDelay=0, buffer=0, coyote=0, jumpHeld=false, accumulator=0, last=0;
-let particles=[], shake=0, landing=0, muted=false, audio=null, fakeTriggered=false, collectedTotal=0;
+let particles=[], shake=0, landing=0, muted=false, audio=null, fakeTriggered=false;
 const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1};
 let cleared={};
 let available=new Set([0,3,6]);
 let continueLevel=0,selectedWorld=0;
+let records={},runs={},storageAvailable=true;
+function fishKey([x,y]){return x+','+y;}
+function levelRevision(i){
+  const item=LEVELS[i];
+  return JSON.stringify([item.boards,item.traits,item.fish,item.checks,item.winds,item.saws]);
+}
+function resumableRun(i){
+  const run=runs[i];
+  if(!run||run.revision!==levelRevision(i))return null;
+  if(run.checkpoint!==-1&&!LEVELS[i].checks.includes(run.checkpoint))return null;
+  if(!Number.isFinite(run.elapsed)||run.elapsed<0||!Number.isInteger(run.deaths)||run.deaths<0)return null;
+  if(!Array.isArray(run.fish)||!run.fish.every(n=>Number.isInteger(n)&&n>=0&&n<LEVELS[i].fish.length))return null;
+  return run;
+}
+function rememberRun(){
+  if(state!=='play'&&state!=='pause')return;
+  runs[levelIndex]={revision:levelRevision(levelIndex),checkpoint,elapsed,deaths,
+    fish:fish.flatMap((item,i)=>item.got?[i]:[])};
+  continueLevel=levelIndex;
+}
+function rememberFish(){
+  const record=records[levelIndex]||{fish:[]};
+  record.fish=[...new Set([...record.fish,...fish.filter(f=>f.got).map(f=>fishKey([f.x,f.y]))])];
+  records[levelIndex]=record;
+}
+function formatTime(seconds){
+  const tenths=Math.round(seconds*10);
+  return Math.floor(tenths/600)+':'+String(Math.floor(tenths/10)%60).padStart(2,'0')+'.'+tenths%10;
+}
 function isLevelUnlocked(i){return available.has(i)||!!LEVELS[i]?.showcase;}
 let lessonSeen=new Set(), lastFallWasBridge=false;
 function teach(id,message){
@@ -251,9 +282,29 @@ try {
     for(const i of saved.available)if(Number.isInteger(i)&&i>=0&&i<LEVELS.length)available.add(i);
     if(saved.cleared&&typeof saved.cleared==='object')cleared=saved.cleared;
     continueLevel=clampLevel(saved.continueLevel);if(!isLevelUnlocked(continueLevel))continueLevel=0;
+    LEVELS.forEach((item,i)=>{
+      const record=saved.records?.[i];
+      if(record&&typeof record==='object'){
+        const known=new Set(item.fish.map(fishKey));
+        records[i]={fish:Array.isArray(record.fish)?[...new Set(record.fish.filter(key=>known.has(key)))]:[]};
+        if(Number.isFinite(record.bestTime)&&record.bestTime>=0)records[i].bestTime=record.bestTime;
+        if(Number.isInteger(record.bestDeaths)&&record.bestDeaths>=0)records[i].bestDeaths=record.bestDeaths;
+      }
+      if(isLevelUnlocked(i)&&saved.runs?.[i]){
+        runs[i]=saved.runs[i];
+        if(!resumableRun(i))delete runs[i];
+      }
+    });
   }
-}catch{}
-function save(){try{localStorage.setItem('tiny-trouble-long-v1',JSON.stringify({available:[...available],cleared,continueLevel}));localStorage.setItem('tiny-trouble-muted',String(muted));}catch{}}
+}catch{storageAvailable=false;}
+function save(){
+  rememberRun();
+  try{
+    localStorage.setItem('tiny-trouble-long-v1',JSON.stringify({available:[...available],cleared,continueLevel,records,runs}));
+    localStorage.setItem('tiny-trouble-muted',String(muted));
+    storageAvailable=true;
+  }catch{storageAvailable=false;}
+}
 function sound(freq=440,duration=.1,type='sine'){
   if(muted||!audio)return;
   const o=audio.createOscillator(),g=audio.createGain();
@@ -268,6 +319,9 @@ function panel(title,description,button,overline='猫的第九次散步'){
   $('overlay').hidden=false;$('heading').textContent=title;$('description').textContent=description;
   $('primary').textContent=button;$('overline').textContent=overline;
   $('secondary').hidden=state==='clear'||state==='complete';
+  $('secondary').textContent='重新开始本关';
+  $('runSummary').hidden=true;
+  $('saveNote').hidden=true;
 }
 function hud(){
   $('chapter').textContent=(worldIndex()+1)+'-'+(levelIndex%3+1)+' / '+world().name;
@@ -285,31 +339,75 @@ function spawn(){
   clearInput();coyote=.1;deathDelay=0;landing=0;lastFallWasBridge=false;
   camera.groundY=p.y;camera.snap=true;updateCamera(0);
 }
-function loadLevel(i){
+function loadLevel(i,resume=false){
   levelIndex=i;level=LEVELS[i];checkpoint=-1;time=0;fakeTriggered=false;lessonSeen=new Set();
   W=level.width;
   $('app').setAttribute('data-world',world().scene);
   boards=level.boards.map(([x,y,w],index)=>({x,y,w,h:18,...level.traits[index],crack:-1}));
   $('hint').textContent=level.hint;
-  fish=level.fish.map(([x,y])=>({x,y,got:false}));particles=[];spawn();hud();rebuildBackground();
+  fish=level.fish.map(([x,y])=>({x,y,got:false}));
+  const run=resume?resumableRun(i):null;
+  if(run){
+    checkpoint=run.checkpoint;elapsed=run.elapsed;deaths=run.deaths;
+    for(const index of run.fish)fish[index].got=true;
+  }
+  particles=[];spawn();hud();rebuildBackground();
 }
-function start(i=0){elapsed=0;deaths=0;collectedTotal=0;loadLevel(clampLevel(i));continueLevel=levelIndex;save();state='play';$('overlay').hidden=true;$('selectPanel').hidden=true;canvas.focus({preventScroll:true});unlockAudio();}
+function start(i=0,resume=false){
+  rememberRun();
+  elapsed=0;deaths=0;loadLevel(clampLevel(i),resume);continueLevel=levelIndex;
+  state='play';save();$('overlay').hidden=true;$('selectPanel').hidden=true;
+  canvas.focus({preventScroll:true});unlockAudio();
+}
 function burst(x,y,color,count=12){for(let i=0;i<count;i++)particles.push({x,y,vx:(Math.random()-.5)*150,vy:-Math.random()*120,life:.4+Math.random()*.3,color});}
 function die(reason='失足也没关系，马上再来。'){
   if(state!=='play'||deathDelay>0)return;
-  deaths++;deathDelay=.42;shake=5;burst(cat.x+12,cat.y+15,'#ca7957',20);sound(130,.18,'triangle');hud();notice(reason);
+  deaths++;deathDelay=.42;shake=5;burst(cat.x+12,cat.y+15,'#ca7957',20);sound(130,.18,'triangle');hud();notice(reason);save();
 }
 function finish(){
-  state=levelIndex===LEVELS.length-1?'complete':'clear';collectedTotal+=fish.filter(f=>f.got).length;
+  if(state!=='play')return;
+  rememberFish();
+  const record=records[levelIndex];
+  const faster=record.bestTime===undefined||elapsed<record.bestTime;
+  const fewer=record.bestDeaths===undefined||deaths<record.bestDeaths;
+  record.bestTime=Math.min(record.bestTime??Infinity,elapsed);
+  record.bestDeaths=Math.min(record.bestDeaths??Infinity,deaths);
+  delete runs[levelIndex];
+  state=levelIndex===LEVELS.length-1?'complete':'clear';
   cleared[levelIndex]=true;
   if(levelIndex%3<2)available.add(levelIndex+1);
   continueLevel=Math.min(LEVELS.length-1,levelIndex+1);
   save();clearInput();sound(880,.3);
   panel(state==='complete'?'到家了，猫猫。':levelIndex%3===2?world().name+'，走过了。':'这一页，走过了。',
-    '用时 '+Math.floor(elapsed)+' 秒 · 跌倒 '+deaths+' 次 · 本次收集 '+collectedTotal+' 条鱼干',
+    '每一步，都离家更近了。',
     state==='complete'?'再走一遍 →':'下一关：'+LEVELS[levelIndex+1].name+' →',state==='complete'?'散步结束 / 三章回家路':(worldIndex()+1)+'-'+(levelIndex%3+1)+' COMPLETE');
+  $('runSummary').replaceChildren();
+  for(const [label,value,best] of [
+    ['本关用时',formatTime(elapsed),(faster?'新纪录 · ':'最佳 ')+formatTime(record.bestTime)],
+    ['本关跌倒',deaths+' 次',(fewer?'新纪录 · ':'最少 ')+record.bestDeaths+' 次'],
+    ['本次鱼干',fish.filter(f=>f.got).length+' / '+fish.length,'已找到 '+record.fish.length+' / '+fish.length]
+  ]){
+    const stat=document.createElement('div');
+    for(const [tag,text] of [['small',label],['strong',value],['small',best]]){
+      const item=document.createElement(tag);item.textContent=text;stat.appendChild(item);
+    }
+    $('runSummary').appendChild(stat);
+  }
+  $('runSummary').hidden=false;
 }
-function pause(){if(state==='play'){state='pause';clearInput();panel('歇一会儿。','森林会等你回来。','继续散步 →');}else if(state==='pause'){state='play';$('overlay').hidden=true;canvas.focus({preventScroll:true});}}
+function pause(){
+  if(state==='play'){
+    state='pause';clearInput();save();panel('歇一会儿。','休息好了，再继续向前走。','继续散步 →');
+    showSaveNote();
+  }else if(state==='pause'){
+    state='play';clearInput();$('overlay').hidden=true;canvas.focus({preventScroll:true});
+  }
+}
+function showSaveNote(){
+  $('saveNote').textContent=checkpoint<0?'重新打开可从本关起点继续':'重新打开可从第 '+level.checks.filter(i=>i<=checkpoint).length+' 盏路灯继续';
+  if(!storageAvailable)$('saveNote').textContent='当前浏览器无法保存，关闭页面会丢失本次进度。';
+  $('saveNote').hidden=false;
+}
 function overlap(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 function update(dt){
   if(state!=='play')return;
@@ -344,7 +442,7 @@ function update(dt){
       }
       if(level.checks.includes(i)&&(checkpoint<0||b.x>boards[checkpoint].x)){checkpoint=i;sound(740,.2);burst(b.x+35,b.y-35,'#efc97a',20);
         if(b.source===0)teach('lamp','路灯已点亮。前面的裂纹板，别停太久。');
-        else notice('路灯点亮，跌倒后从这里继续。');hud();}
+        else notice('路灯点亮，跌倒后从这里继续。');hud();save();}
       if(levelIndex===0&&i===level.rescue)teach('rescue','接住你了。从右边的小台阶回去就好。');
       if(i===exitIndex()&&cat.x>(level.finishX??b.x+24)){finish();return;}
     }
@@ -352,7 +450,7 @@ function update(dt){
   const hurt={x:cat.x+4,y:cat.y+4,w:cat.w-8,h:cat.h-5};
   for(const [x,y,w] of level.thorns)if(overlap(hurt,{x:x+3,y:y+3,w:w-6,h:11})){die('荆棘扎脚，跳过去就好。');return;}
   for(const s of level.saws){const sx=s.x+Math.sin(time*1.8)*s.range;const nx=Math.max(hurt.x,Math.min(sx,hurt.x+hurt.w)),ny=Math.max(hurt.y,Math.min(s.y,hurt.y+hurt.h));if(Math.hypot(sx-nx,s.y-ny)<s.r){die('等飞果离开，再起跳。');return;}}
-  for(const f of fish)if(!f.got&&Math.hypot(cat.x+12-f.x,cat.y+15-f.y)<25){f.got=true;sound(1050,.12);burst(f.x,f.y,'#c49243',10);hud();}
+  for(const f of fish)if(!f.got&&Math.hypot(cat.x+12-f.x,cat.y+15-f.y)<25){f.got=true;rememberFish();save();sound(1050,.12);burst(f.x,f.y,'#c49243',10);hud();}
   const section=level.sections.findLast(s=>cat.x>=s.x);
   if(section&&section!==level.sections[0])teach('section-'+section.source,section.name+' · '+section.hint);
   if(cat.y>H+40)die(lastFallWasBridge?'裂纹板会塌。路灯已记住你，下次及时起跳。':'失足也没关系，马上再来。');
@@ -448,12 +546,12 @@ function drawBoard(b,i){
   const urgency=b.crack<0?0:b.crack/crumbleDelay(b);
   const jitter=urgency>0?Math.sin(time*65)*urgency*2:0;
   ctx.save();ctx.translate(jitter,0);
-  ctx.fillStyle=b.ice?'#a6d6e7':worldIndex()===2?'#6e789b':worldIndex()===1?'#a4b8b6':b.fragile?'#b79b75':'#b9b08a';ctx.strokeStyle=worldIndex()===2?'#3c4866':'#68634d';ctx.lineWidth=1.6;
+  ctx.fillStyle=b.bonus?'#c99b78':b.ice?'#a6d6e7':worldIndex()===2?'#6e789b':worldIndex()===1?'#a4b8b6':b.fragile?'#b79b75':'#b9b08a';ctx.strokeStyle=worldIndex()===2?'#3c4866':'#68634d';ctx.lineWidth=1.6;
   ctx.beginPath();ctx.moveTo(b.x,b.y+1);ctx.lineTo(b.x+b.w,b.y);ctx.lineTo(b.x+b.w-4,b.y+19);ctx.lineTo(b.x+5,b.y+22);ctx.closePath();ctx.fill();ctx.stroke();
   line(ctx,[[b.x+4,b.y+6],[b.x+b.w-5,b.y+5]],'#eee3bb',3);
   for(let x=b.x+12;x<b.x+b.w-8;x+=22)line(ctx,[[x,b.y+12],[x+13,b.y+11]],'#83785b',.8);
   if(b.fragile)line(ctx,[[b.x+b.w*.55,b.y+1],[b.x+b.w*.47,b.y+9],[b.x+b.w*.6,b.y+14],[b.x+b.w*.52,b.y+21]],'#67503f',1.5);
-  else if(worldIndex()===0)for(let x=b.x+9;x<b.x+b.w-7;x+=14){line(ctx,[[x,b.y],[x-3,b.y-5],[x+1,b.y-2],[x+4,b.y-7]],'#607654',1);}
+  else if(worldIndex()===0&&!b.bonus)for(let x=b.x+9;x<b.x+b.w-7;x+=14){line(ctx,[[x,b.y],[x-3,b.y-5],[x+1,b.y-2],[x+4,b.y-7]],'#607654',1);}
   if(b.spring){
     ctx.fillStyle='#83c7d1';ctx.beginPath();ctx.moveTo(b.x+4,b.y);ctx.quadraticCurveTo(b.x+b.w*.5,b.y-13,b.x+b.w-4,b.y);ctx.fill();
     line(ctx,[[b.x+12,b.y+15],[b.x+23,b.y+8],[b.x+34,b.y+15],[b.x+45,b.y+8]],'#527c8c',1.6);
@@ -623,12 +721,25 @@ function drawAuthoredLandmarks(){
     const b=boards[section.board],x=b.x+b.w*.65;
     if(x<camera.x-220||x>camera.x+camera.w+220)continue;
     const isEnd=section.board===exitIndex();
-    drawRouteLandmark(section.kind,isEnd?level.finishX+12:x,b.y,isEnd);
+    if(levelIndex===1&&section.board===4)drawOrchardShelter();
+    else drawRouteLandmark(section.kind,isEnd?level.finishX+12:x,b.y,isEnd);
     ctx.fillStyle=worldIndex()===2?'#eee0bb':'#546e63';ctx.font='12px "Microsoft YaHei",sans-serif';
     ctx.fillText(section.name+' →',b.x+8,b.y-195);
   }
   const end=boards[exitIndex()];
   if(!level.sections.some(s=>s.board===exitIndex()))drawRouteLandmark(level.sections[level.sections.length-1].kind,level.finishX+12,end.y,true);
+}
+function drawOrchardShelter(){
+  // The two warm roof tops are actual optional platforms, with a clear path below.
+  for(const b of boards.filter(item=>item.bonus)){
+    line(ctx,[[b.x+10,b.y+20],[b.x+10,415]],'#86967a',5);
+    line(ctx,[[b.x+b.w-10,b.y+20],[b.x+b.w-10,415]],'#86967a',5);
+    line(ctx,[[b.x+10,b.y+38],[b.x+b.w-10,b.y+64]],'#a8af8d',2);
+  }
+  ctx.font='12px "Microsoft YaHei",sans-serif';ctx.fillStyle='#835d47';
+  ctx.fillText('↑ 棚顶鱼干 · 可选',886,204);
+  ctx.fillStyle='#4e6851';ctx.fillText('安全木道 →',900,410);
+  ctx.fillText('↓ 回到木道',1205,270);
 }
 function draw(){
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
@@ -669,11 +780,13 @@ function draw(){
   $('routeProgress').style.width=Math.max(0,Math.min(100,(cat.x+cat.w)/W*100))+'%';
   $('routeMeter').setAttribute('aria-valuenow',String(Math.round(Math.max(0,Math.min(100,(cat.x+cat.w)/W*100)))));
 }
-function next(){unlockAudio();if(state==='menu')start(continueLevel);else if(state==='pause')pause();else if(state==='clear'){
-  loadLevel(levelIndex+1);continueLevel=levelIndex;
-  save();
-  state='play';$('overlay').hidden=true;canvas.focus({preventScroll:true});
-}else if(state==='complete')start(0);}
+function next(){
+  unlockAudio();
+  if(state==='menu')start(continueLevel,true);
+  else if(state==='pause')pause();
+  else if(state==='clear')start(levelIndex+1,true);
+  else if(state==='complete')start(0);
+}
 function showLevels(chapter=worldIndex()){
   if(state==='play')pause();
   selectedWorld=chapter;
@@ -689,11 +802,19 @@ function showLevels(chapter=worldIndex()){
     const button=document.createElement('button');
     button.className='level-choice'+(cleared[i]?' done':'');
     button.disabled=!isLevelUnlocked(i);
-    const title=document.createElement('span'),status=document.createElement('small');
+    const title=document.createElement('span'),status=document.createElement('small'),progress=document.createElement('small');
     title.textContent=(selectedWorld+1)+'-'+(i%3+1)+' '+item.name;
-    status.textContent=!isLevelUnlocked(i)?'未解锁':cleared[i]?'✓ 已走过':item.showcase?'本轮精修 · 可试玩':'可以出发';
+    status.textContent=!isLevelUnlocked(i)?'未解锁':resumableRun(i)?'继续散步 · 已保存':cleared[i]?'✓ 已走过':'可以出发';
     button.appendChild(title);button.appendChild(status);
-    button.onclick=()=>{if(isLevelUnlocked(i))start(i);};
+    const record=records[i];
+    if(isLevelUnlocked(i)){
+      progress.className='level-record';
+      progress.textContent='鱼干 '+(record?.fish.length||0)+' / '+item.fish.length;
+      if(record?.bestTime!==undefined)progress.textContent+=' · 最佳 '+formatTime(record.bestTime);
+      if(record?.bestDeaths!==undefined)progress.textContent+=' · 最少 '+record.bestDeaths+' 次';
+      button.appendChild(progress);
+    }
+    button.onclick=()=>{if(isLevelUnlocked(i))start(i,true);};
     $('levelGrid').appendChild(button);
   });
   $('selectPanel').hidden=false;$('closeLevels').focus({preventScroll:true});
@@ -713,7 +834,8 @@ window.addEventListener('keyup',e=>up(e.code));
 window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();});
 window.addEventListener('orientationchange',()=>{clearInput();if(state==='play')pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='play')pause();});
-$('primary').onclick=next;$('secondary').onclick=()=>start(0);$('pause').onclick=()=>{if(!$('selectPanel').hidden)$('selectPanel').hidden=true;else pause();};
+window.addEventListener('pagehide',()=>{clearInput();save();});
+$('primary').onclick=next;$('secondary').onclick=()=>start(levelIndex);$('pause').onclick=()=>{if(!$('selectPanel').hidden)$('selectPanel').hidden=true;else pause();};
 $('levels').onclick=()=>showLevels();
 $('closeLevels').onclick=()=>{$('selectPanel').hidden=true;$('levels').focus({preventScroll:true});};
 $('sound').onclick=()=>{muted=!muted;unlockAudio();save();updateSound();};
@@ -768,4 +890,8 @@ window.addEventListener('resize',resizeView);
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(resizeView).observe(canvas);
 function loop(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;accumulator+=dt;while(accumulator>=STEP){update(STEP);accumulator-=STEP;}if(state==='play'||camera.snap)updateCamera(dt);draw();requestAnimationFrame(loop);}
 resizeView();
-loadLevel(continueLevel);updateSound();$('primary').textContent=continueLevel?'继续 '+(worldIndex()+1)+'-'+(levelIndex%3+1)+' →':'出发吧 →';$('secondary').hidden=!continueLevel;requestAnimationFrame(loop);
+loadLevel(continueLevel,true);updateSound();
+$('primary').textContent=resumableRun(continueLevel)?'从'+(checkpoint<0?'起点':'路灯')+'继续 →':continueLevel?'出发 '+(worldIndex()+1)+'-'+(levelIndex%3+1)+' →':'出发吧 →';
+$('secondary').textContent='重新开始本关';$('secondary').hidden=!resumableRun(continueLevel);
+if(resumableRun(continueLevel))showSaveNote();
+requestAnimationFrame(loop);
