@@ -1,4 +1,4 @@
-# 绘本美术第一批
+# 绘本美术
 
 本批使用内置 imagegen 生成，六帧猫猫与环境图集保留原始透明 PNG。森林背景转为 JPEG，以减少手机加载量。文件均保存在此目录，运行时按原始图集坐标裁切绘制。
 
@@ -6,10 +6,25 @@
 - forest-dawn-v1.jpg，1536 × 1024，第一章三关使用，慢速视差与镜像衔接。
 - woodland-atlas-v1.png，1536 × 1024，草地、裂纹木桥、棚顶、树洞、路灯、鱼干。草地和木桥的可踩顶面与游戏坐标对齐。
 - signs-gouache-v1.png，1536 × 1024，上半张为撕边纸签，下半张为浅木提示牌。文字实时绘制，中央拉伸而边缘保持比例，全部章节共用。
+- harbor-afternoon-v1.jpg，1536 × 1024，第二章三关使用的午后海港视差背景。
+- harbor-atlas-v1.png，1536 × 1024，木栈桥、蓝色弹性垫、货箱、帆船、吊架与灯塔。走道和弹性垫顶面按物理坐标放置。
+- harbor-warehouse-v1.png，1536 × 1024，独立的开敞式货仓，中央开口保留透明，穿行路线在前景绘制。
 
-猫猫、路灯与鱼干应用于全部章节。第一章作为绘本美术样板，码头和屋顶的背景与主要建筑仍使用原有画法。
+猫猫、路灯、鱼干与提示牌应用于全部章节。第一章和第二章的背景与主要场景素材已使用绘本美术，屋顶环境仍使用原有画法。
 
 ## 实际生成提示词
+
+### 第二章海港背景
+
+Use case: illustration-story. A finished DISTANT BACKGROUND plate for an original hand-painted 2D cat adventure, same premium storybook gouache and colored pencil character as a warm woodland children's book. Wide 3:2 landscape, 1536x1024 preferred. A peaceful tidewater fishing harbor at late afternoon, pale misty teal water across lower half, distant low coastal village with ochre and dusty terracotta roofs, small faraway sailing masts, weathered stone breakwater silhouettes, sea birds high in ivory sky, warm cream sunlight glinting on calm water. Muted eucalyptus, sea-glass blue, dusty slate, warm ivory, tiny terracotta highlights. Sophisticated layered atmospheric perspective and tactile watercolor brushwork. Central 70% quiet and LOW CONTRAST for readable action in front; most detail stays at the horizon and far edges. Horizon at about 55% height. No foreground boats or ships, no foreground posts, no bridges, no walkable platforms, no close buildings, no ground plane, no characters, no text, no UI, no watermark. Similar brightness and water/sky colors at left and right edges for mirrored horizontal scrolling. Fully opaque background.
+
+### 第二章场景图集
+
+Use case: illustration-story. A TRUE TRANSPARENT PNG production sprite atlas for a polished side-view 2D hand-painted fishing harbor cat platform game. Exactly THREE columns and TWO rows, 1536x1024, six equal 512x512 cells. Gouache, colored pencil details, crisp readable outlines, weathered warm oak, pale sea-glass blue, brass, ivory sails, terracotta lighthouse stripes. No letters, numbers, labels, borders, cast floor shadows or watermark. Every item fully visible and separate inside its own cell. TOP LEFT: horizontal weathered wooden dock ledge, flat clearly readable WALKABLE TOP, iron nails, small rope lashings only at ends, driftwood fibers and a hint of sea moss. Almost full cell width, middle third of cell height. TOP MIDDLE: horizontal maritime spring cushion, thick soft BLUE TEAL fabric with cream stitched seams and a gentle raised dome above a short wooden base, easily readable as a soft jumping pad, almost full width and middle third of height. TOP RIGHT: a single wooden cargo crate viewed straight from the side with an absolutely flat top, X bracing, worn blue corner paint, no cargo on top. BOTTOM LEFT: a whole modest old fishing sailboat in exact side elevation, bow to the right, a STRAIGHT HORIZONTAL DECK across the hull about 70% down in the cell, single tall mast, one warm ivory triangular sail, sea-blue hull with small brass portholes, no rigging obscuring the deck, no water. BOTTOM MIDDLE: a whole weathered wooden harbor lifting crane, one tall vertical post with diagonal brace, horizontal overhead beam, hanging rope and small hook well to the right, simple elegant silhouette, fully visible, no base floor. BOTTOM RIGHT: a whole charming slender lighthouse, warm ivory masonry with two dusty terracotta bands, slate-blue pointed roof, glowing gold lantern window, tiny arched wooden door at its base and a narrow stone plinth, fully visible from roof to base. All three bottom row assets centered with base at 93% cell height, generous transparent gutters. True transparent alpha throughout empty space.
+
+### 第二章开敞货仓
+
+Use case: illustration-story. Production TRUE TRANSPARENT cutout environment asset for a premium 2D storybook fishing harbor platform game. A single complete wide open-front waterfront cargo shed, straight-on SIDE ELEVATION, wide 3:2 framing 1536x1024 preferred. Softly weathered sea-glass teal timber, warm pale plaster, dusty terracotta pitched roof, simple dark wood rafters, ropes neatly coiled at the two far side posts, little nautical details. Gouache and colored-pencil texture, beautifully painted with warm ivory afternoon lighting. Huge central loading opening takes up central 75% width and lower 65% height: this opening must be GENUINELY TRANSPARENT so game characters and platforms appear in it. The building consists of a solid roof, a narrow back header just beneath it, and two narrow side pillars with small wall panels only at far edges. Absolutely no opaque back wall across the central opening. No floor, no ground, no pier, no crates, no ship, no people, no characters, no text, no signage, no watermark, no perspective floor or shadows. Entire roof and pillars visible inside the canvas with at least 40 pixels transparent margin. Colorful but restrained, the active route in front must stay visually legible. True alpha outside building and inside opening.
 
 ### 提示牌
 

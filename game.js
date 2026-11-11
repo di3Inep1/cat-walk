@@ -6,7 +6,8 @@ const illustrations={};
 let illustrationLoading=false;
 function loadIllustrations(){
   if(typeof Image==='undefined')return;
-  const files={cat:'assets/cat-gouache-v1.png',forest:'assets/forest-dawn-v1.jpg',environment:'assets/woodland-atlas-v1.png',signs:'assets/signs-gouache-v1.png'};
+  const files={cat:'assets/cat-gouache-v1.png',forest:'assets/forest-dawn-v1.jpg',environment:'assets/woodland-atlas-v1.png',signs:'assets/signs-gouache-v1.png',
+    harbor:'assets/harbor-afternoon-v1.jpg',harborEnvironment:'assets/harbor-atlas-v1.png',warehouse:'assets/harbor-warehouse-v1.png'};
   let pending=Object.keys(files).length,failed=0;
   illustrationLoading=true;$('primary').disabled=true;
   $('assetStatus').hidden=false;$('assetStatus').textContent='正在翻开绘本…';
@@ -571,6 +572,7 @@ function drawBoard(b,i){
   const jitter=urgency>0?Math.sin(time*65)*urgency*2:0;
   ctx.save();ctx.translate(jitter,0);
   if(worldIndex()===0&&illustrations.environment)drawPaintedPlatform(b);
+  else if(worldIndex()===1&&illustrations.harborEnvironment)drawPaintedDock(b);
   else{
   ctx.fillStyle=b.bonus?'#c99b78':b.ice?'#a6d6e7':worldIndex()===2?'#6e789b':worldIndex()===1?'#a4b8b6':b.fragile?'#b79b75':'#b9b08a';ctx.strokeStyle=worldIndex()===2?'#3c4866':'#68634d';ctx.lineWidth=1.6;
   ctx.beginPath();ctx.moveTo(b.x,b.y+1);ctx.lineTo(b.x+b.w,b.y);ctx.lineTo(b.x+b.w-4,b.y+19);ctx.lineTo(b.x+5,b.y+22);ctx.closePath();ctx.fill();ctx.stroke();
@@ -579,7 +581,7 @@ function drawBoard(b,i){
   if(b.fragile)line(ctx,[[b.x+b.w*.55,b.y+1],[b.x+b.w*.47,b.y+9],[b.x+b.w*.6,b.y+14],[b.x+b.w*.52,b.y+21]],'#67503f',1.5);
   else if(worldIndex()===0&&!b.bonus)for(let x=b.x+9;x<b.x+b.w-7;x+=14){line(ctx,[[x,b.y],[x-3,b.y-5],[x+1,b.y-2],[x+4,b.y-7]],'#607654',1);}
   }
-  if(b.spring){
+  if(b.spring&&!(worldIndex()===1&&illustrations.harborEnvironment)){
     ctx.fillStyle='#83c7d1';ctx.beginPath();ctx.moveTo(b.x+4,b.y);ctx.quadraticCurveTo(b.x+b.w*.5,b.y-13,b.x+b.w-4,b.y);ctx.fill();
     line(ctx,[[b.x+12,b.y+15],[b.x+23,b.y+8],[b.x+34,b.y+15],[b.x+45,b.y+8]],'#527c8c',1.6);
   }
@@ -616,13 +618,24 @@ function drawPaintedLamp(x,y,lit){
   ctx.drawImage(illustrations.environment,655,540,235,460,x-13,y-72.2,37.6,73.6);
   ctx.globalAlpha=1;
 }
+function drawPaintedDock(b){
+  const image=illustrations.harborEnvironment;
+  const sourceX=b.spring?512:0,sourceY=b.spring?244:180;
+  // Use the cushion's stitched front face so its upper edge follows the flat collider.
+  const sourceHeight=b.spring?136:205,scale=.2;
+  const top=b.spring?2:28,cap=Math.min(18,b.w/3),y=b.y-top*scale;
+  ctx.drawImage(image,sourceX,sourceY,90,sourceHeight,b.x,y,cap,sourceHeight*scale);
+  ctx.drawImage(image,sourceX+90,sourceY,332,sourceHeight,b.x+cap,y,b.w-cap*2,sourceHeight*scale);
+  ctx.drawImage(image,sourceX+422,sourceY,90,sourceHeight,b.x+b.w-cap,y,cap,sourceHeight*scale);
+}
 function drawPaintedBackdrop(){
+  const image=worldIndex()===1?illustrations.harbor:illustrations.forest;
   const width=810,offset=camera.x*.18;
   for(let tile=Math.floor(offset/width);tile<=Math.floor((offset+camera.w)/width);tile++){
     const x=tile*width+camera.x*.82;
     ctx.save();
     ctx.translate(tile%2?x+width:x,0);ctx.scale(tile%2?-1:1,1);
-    ctx.drawImage(illustrations.forest,0,0,width,H);
+    ctx.drawImage(image,0,0,width,H);
     ctx.restore();
   }
 }
@@ -739,6 +752,9 @@ function drawCat(){
   ctx.restore();
 }
 function drawHarborLandmarks(){
+  if(illustrations.harborEnvironment&&illustrations.warehouse){
+    drawPaintedHarborShowcase();return;
+  }
   // Ship and cargo shed are local landmarks, never repeated with background tiles.
   ctx.fillStyle='#668c98';ctx.beginPath();ctx.moveTo(410,405);ctx.lineTo(660,405);
   ctx.quadraticCurveTo(644,478,605,482);ctx.lineTo(455,482);ctx.quadraticCurveTo(425,464,410,405);ctx.fill();
@@ -774,7 +790,49 @@ function drawHarborLandmarks(){
   ctx.lineTo(towerX-330,10);ctx.lineTo(towerX-330,136);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
   for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])sceneLabel(label,x,y,{center:true,important:true});
 }
+function drawPaintedHarborObject(kind,x,y,destination=false){
+  const image=illustrations.harborEnvironment;
+  if(kind==='shed'){
+    if(!illustrations.warehouse)return false;
+    ctx.drawImage(illustrations.warehouse,x-138,y-175.3,276,184.3);
+  }else if(kind==='boat'){
+    const scale=.36;
+    ctx.drawImage(image,0,480,512,530,x-256*scale,y-405*scale,512*scale,530*scale);
+  }else if(kind==='crane'||kind==='windmill'){
+    const scale=.36;
+    ctx.drawImage(image,512,480,512,530,x-108*scale,y-512*scale,512*scale,530*scale);
+    if(kind==='windmill'){
+      const wave=Math.sin(time*2)*3;
+      ctx.fillStyle='#e3c7a0';ctx.strokeStyle='#7e7159';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(x+8,y-163);ctx.quadraticCurveTo(x+34,y-170+wave,x+62,y-160+wave);
+      ctx.lineTo(x+56,y-151+wave);ctx.quadraticCurveTo(x+31,y-156+wave,x+8,y-151);ctx.closePath();ctx.fill();ctx.stroke();
+    }
+  }else if(kind==='beacon'){
+    const scale=destination?.45:.39;
+    ctx.drawImage(image,1024,480,512,530,x-262*scale,y-495*scale,512*scale,530*scale);
+  }else return false;
+  return true;
+}
+function drawPaintedHarborShowcase(){
+  const image=illustrations.harborEnvironment;
+  // The illustrated hull's deck is aligned to main platform 2.
+  const shipScale=250/512;
+  ctx.drawImage(image,0,480,512,530,410,400-405*shipScale,250,530*shipScale);
+  ctx.drawImage(illustrations.warehouse,830,100,700,420);
+  // The crate's top and the high bridge decking share the real collision tops.
+  ctx.drawImage(image,1100,86,380,360,1150,355,130,103);
+  for(const i of [7,8,9,10]){
+    const b=boards[i];
+    for(const x of [b.x+18,b.x+b.w-18])ctx.drawImage(image,1120,160,35,210,x-4,b.y+10,8,535-b.y-10);
+    line(ctx,[[b.x+18,b.y+30],[b.x+b.w-18,510]],'#9a9277',1.5);
+  }
+  drawPaintedHarborObject('beacon',3058,265,true);
+  ctx.globalAlpha=.06+.025*Math.sin(time*1.5);ctx.fillStyle='#fff0c2';
+  ctx.beginPath();ctx.moveTo(3058,87);ctx.lineTo(2728,20);ctx.lineTo(2728,145);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+  for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])sceneLabel(label,x,y,{center:true,important:true});
+}
 function drawRouteLandmark(kind,x,y,destination=false){
+  if(worldIndex()===1&&illustrations.harborEnvironment&&drawPaintedHarborObject(kind,x,y,destination))return;
   if(worldIndex()===0&&illustrations.environment&&['tree','gate','arch'].includes(kind)){
     const scale=destination?.45:kind==='tree'?.36:.4;
     if(destination){ctx.globalAlpha=.12;oval(ctx,x,y-32,24,37,'#f7d68c');ctx.globalAlpha=1;}
@@ -838,7 +896,7 @@ function drawAuthoredLandmarks(){
     if(x<camera.x-220||x>camera.x+camera.w+220)continue;
     const isEnd=section.board===exitIndex();
     let landmarkX=x;
-    if(worldIndex()===0&&illustrations.environment)landmarkX=b.x+b.w*.5;
+    if((worldIndex()===0&&illustrations.environment)||(worldIndex()===1&&illustrations.harborEnvironment))landmarkX=b.x+b.w*.5;
     if(isEnd)landmarkX=level.finishX+12;
     if(levelIndex===1&&section.board===4)drawOrchardShelter();
     else drawRouteLandmark(section.kind,landmarkX,b.y,isEnd);
@@ -863,7 +921,7 @@ function draw(){
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
   ctx.save();ctx.translate(-camera.x,-camera.y);
-  if(worldIndex()===0&&illustrations.forest)drawPaintedBackdrop();
+  if((worldIndex()===0&&illustrations.forest)||(worldIndex()===1&&illustrations.harbor))drawPaintedBackdrop();
   else for(let tile=Math.floor(camera.x/960);tile<=Math.floor((camera.x+camera.w)/960);tile++)ctx.drawImage(background,tile*960,0);
   if(shake)ctx.translate(Math.sin(time*90)*shake,Math.cos(time*70)*shake*.5);
   // Tiny drifting pollen is decorative; collision surfaces stay perfectly stable.
@@ -874,7 +932,7 @@ function draw(){
     ctx.globalAlpha=.5;const direction=Math.sign(zone.speed);
     for(let i=0;i<18;i++){
       const x=zone.from+10+((i*71+direction*time*32)%380+380)%380,y=215+(i%5)*50;
-      line(ctx,[[x,y],[x+direction*20,y],[x+direction*15,y-3]],'#e5f3f3',1.4);
+      line(ctx,[[x,y],[x+direction*20,y],[x+direction*15,y-3]],illustrations.harbor?'#668f9c':'#e5f3f3',1.4);
     }ctx.globalAlpha=1;
     sceneLabel(zone.speed>0?'顺风区 →':'← 逆风区',zone.from+20,300,{important:true});
   }
@@ -883,7 +941,9 @@ function draw(){
   for(const [x,y,w] of level.thorns){for(let j=0;j<w;j+=10){ctx.fillStyle='#a76050';ctx.beginPath();ctx.moveTo(x+j,y+14);ctx.quadraticCurveTo(x+j+3,y+3,x+j+7,y);ctx.lineTo(x+j+10,y+14);ctx.fill();line(ctx,[[x+j+3,y+12],[x+j+7,y+3]],'#6b493f');}}
   const end=boards[exitIndex()];
   if(level.showcase){
+    if(!(illustrations.harborEnvironment&&illustrations.warehouse)){
     ctx.fillStyle='#66838b';ctx.fillRect(3046,230,24,35);ctx.fillStyle='#efd58f';ctx.fillRect(3050,237,16,28);
+    }
   }else if(!level.refined){
   ctx.fillStyle='#957b5a';ctx.fillRect(end.x+36,end.y-53,32,53);
   ctx.fillStyle='#674c3f';ctx.beginPath();ctx.moveTo(end.x+28,end.y-51);ctx.lineTo(end.x+52,end.y-76);ctx.lineTo(end.x+76,end.y-51);ctx.fill();
