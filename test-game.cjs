@@ -83,6 +83,8 @@ assert.equal(run('levelIndex'),0);
 run("$('selectPanel').hidden=true;pause();finish()");assert.equal(run('isLevelUnlocked(1)'),true);
 assert.equal(run('isLevelUnlocked(4)'),true,'Featured showcase is directly playable');
 assert.equal(run('isLevelUnlocked(5)'),false,'Showcase does not unlock its follow-up until completion');
+assert.equal(run('isLevelUnlocked(7)'),true,'The mill sample can be played directly');
+assert.equal(run('isLevelUnlocked(8)'),false,'Preview access does not unlock the final level');
 run('runs={};start(2);elapsed=40;finish();next()');assert.equal(run('levelIndex'),3);assert.equal(run('elapsed'),0);
 run('start(5);finish();next()');assert.equal(run('levelIndex'),6);
 const migration=run('migrateProgress(7,{8:true,9:true,10:true,16:true},17)');
@@ -271,7 +273,7 @@ for(let i=0;i<9;i++){
   for(const img of painted.imageRequests.slice(previous))img.onload();
   painted.run('draw();cat.vx=240;time=1;draw();cat.ground=false;cat.vy=-400;draw();cat.vy=200;draw()');
 }
-assert.equal(painted.imageRequests.length,11,'Each illustration is loaded once across all chapters');
+assert.equal(painted.imageRequests.length,13,'Each illustration is loaded once across all chapters');
 painted.run('const nightImages=[];ctx.drawImage=(...args)=>nightImages.push(args);camera.x=0;drawPaintedBackdrop();camera.x=W-camera.w;drawPaintedBackdrop()');
 assert.equal(painted.run('nightImages.length'),2,'A single moon panorama is drawn at either map edge');
 assert.equal(painted.run('nightImages.every(args=>Math.abs(args[3]/args[4]-1.5)<.001)'),true,'The moon retains its round shape');
@@ -291,6 +293,14 @@ assert.equal(switching.imageRequests.length,8,'Returning to a chapter uses the l
 const moonStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],continueLevel:6})},true);
 assert.equal(moonStart.imageRequests.length,7,'Direct rooftop entry loads shared art and its four images');
 assert.ok(moonStart.imageRequests.every(img=>!img.url.includes('forest')&&!img.url.includes('harbor')));
+const millStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],continueLevel:7})},true);
+assert.equal(millStart.imageRequests.length,5,'The mill loads only shared art and two indoor assets');
+assert.ok(millStart.imageRequests.every(img=>!img.url.includes('rooftop')&&!img.url.includes('harbor')));
+for(const img of millStart.imageRequests)img.onload();
+millStart.run('next();checkpoint=6;spawn();const startMillX=cat.x;update(STEP)');
+assert.ok(millStart.run('cat.x<startMillX'),'The return conveyor carries a standing cat left');
+millStart.run('cat.ground=false;cat.y-=90;const jumpMillX=cat.x;update(STEP)');
+assert.equal(millStart.run('cat.x'),millStart.run('jumpMillX'),'A jump leaves the return conveyor');
 const oldPage=boot({},true),oldLookup=oldPage.context.document.getElementById;
 oldPage.context.document.getElementById=id=>id==='artLoading'?null:oldLookup(id);
 assert.doesNotThrow(()=>{for(const img of oldPage.imageRequests)img.onload();oldPage.run('start(6)')},'A cached older page can load the updated game script');
