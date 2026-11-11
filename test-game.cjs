@@ -1,7 +1,7 @@
 // Run the real game logic with a minimal DOM, without replacing its physics.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 function boot(stored={},withImages=false){
-const pen=new Proxy({}, {get:(_,key)=>key==='measureText'?text=>({width:[...text].length*8}):()=>{}});
+const pen=new Proxy({}, {get:(target,key)=>target[key]??(key==='measureText'?text=>({width:[...text].length*8}):()=>{})});
 const elements=new Map(),handlers=new Map(),windowHandlers=new Map();
 let elementSequence=0;
 function element(id){if(!elements.has(id))elements.set(id,{hidden:id==='selectPanel',textContent:'',style:{},children:[],appendChild(child){this.children.push(child)},replaceChildren(){this.children=[]},classList:{add(){},remove(){}},setAttribute(){},focus(){},getContext:()=>pen,addEventListener(type,fn){handlers.set(id+':'+type,fn)}});return elements.get(id);}
@@ -240,14 +240,39 @@ const painted=boot({},true);
 assert.equal(painted.run("$('primary').disabled"),true);
 painted.run('next()');
 assert.equal(painted.run('state'),'menu','The menu waits for illustrations');
-assert.equal(painted.imageRequests.length,7);
+assert.equal(painted.imageRequests.length,4,'Startup loads only shared art and the current chapter');
 painted.imageRequests[0].onload();painted.imageRequests[1].onload();
 assert.equal(painted.run('illustrationLoading'),true);
 for(const img of painted.imageRequests.slice(2))img.onload();
 assert.equal(painted.run("$('primary').disabled"),false);
 painted.run('next()');
 assert.equal(painted.run('state'),'play');
-for(let i=0;i<9;i++)painted.run(`start(${i});draw();cat.vx=240;time=1;draw();cat.ground=false;cat.vy=-400;draw();cat.vy=200;draw()`);
+for(let i=0;i<9;i++){
+  const previous=painted.imageRequests.length;
+  painted.run(`start(${i})`);
+  for(const img of painted.imageRequests.slice(previous))img.onload();
+  painted.run('draw();cat.vx=240;time=1;draw();cat.ground=false;cat.vy=-400;draw();cat.vy=200;draw()');
+}
+assert.equal(painted.imageRequests.length,10,'Each illustration is loaded once across all chapters');
+painted.run('const nightImages=[];ctx.drawImage=(...args)=>nightImages.push(args);camera.x=0;drawPaintedBackdrop();camera.x=W-camera.w;drawPaintedBackdrop()');
+assert.equal(painted.run('nightImages.length'),2,'A single moon panorama is drawn at either map edge');
+assert.equal(painted.run('nightImages.every(args=>Math.abs(args[3]/args[4]-1.5)<.001)'),true,'The moon retains its round shape');
+const switching=boot({},true);
+for(const img of switching.imageRequests)img.onload();
+switching.run('start(6);update(1);down("ArrowRight");touchDown({dataset:{key:"Space"},setAttribute(){}},1)');
+assert.equal(switching.run('elapsed'),0,'Loading time is excluded from the run');
+assert.equal(switching.run('keys.size+touchPointers.size'),0,'Loading cannot leave movement held');
+assert.equal(switching.run("$('artLoading').hidden"),false);
+switching.run('start(0)');
+assert.equal(switching.run('illustrationLoading'),false,'A cached chapter is immediately playable');
+for(const img of switching.imageRequests.slice(4))img.onload();
+assert.equal(switching.run('levelIndex'),0,'Late images cannot switch the current chapter');
+assert.equal(switching.run('illustrationLoading'),false);
+switching.run('start(6)');
+assert.equal(switching.imageRequests.length,7,'Returning to a chapter uses the loaded assets');
+const moonStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],continueLevel:6})},true);
+assert.equal(moonStart.imageRequests.length,6,'Direct rooftop entry loads shared art and its three images');
+assert.ok(moonStart.imageRequests.every(img=>!img.url.includes('forest')&&!img.url.includes('harbor')));
 const missingArt=boot({},true);
 for(const img of missingArt.imageRequests)img.onerror();
 missingArt.run('next();draw()');

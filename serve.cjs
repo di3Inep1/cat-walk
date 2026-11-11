@@ -3,6 +3,7 @@ const types={'/index.html':'text/html; charset=utf-8','/style.css':'text/css; ch
 Object.assign(types,{'/assets/cat-gouache-v1.png':'image/png','/assets/woodland-atlas-v1.png':'image/png','/assets/forest-dawn-v1.jpg':'image/jpeg'});
 types['/assets/signs-gouache-v1.png']='image/png';
 Object.assign(types,{'/assets/harbor-afternoon-v1.jpg':'image/jpeg','/assets/harbor-atlas-v1.png':'image/png','/assets/harbor-warehouse-v1.png':'image/png'});
+Object.assign(types,{'/assets/rooftop-moonlight-v1.jpg':'image/jpeg','/assets/rooftop-atlas-v1.png':'image/png','/assets/rooftop-landmarks-v1.png':'image/png'});
 const lan=process.argv.includes('--lan'),port=Number(process.env.PORT||4173);
 const server=http.createServer((req,res)=>{
   let name=new URL(req.url,'http://localhost').pathname;

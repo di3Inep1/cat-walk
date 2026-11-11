@@ -3,28 +3,43 @@
 const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
 const $ = id => document.getElementById(id);
 const illustrations={};
+const illustrationStates={};
+const illustrationFiles={
+  cat:'assets/cat-gouache-v1.png',environment:'assets/woodland-atlas-v1.png',signs:'assets/signs-gouache-v1.png',
+  forest:'assets/forest-dawn-v1.jpg',harbor:'assets/harbor-afternoon-v1.jpg',
+  harborEnvironment:'assets/harbor-atlas-v1.png',warehouse:'assets/harbor-warehouse-v1.png',
+  rooftop:'assets/rooftop-moonlight-v1.jpg',rooftopEnvironment:'assets/rooftop-atlas-v1.png',rooftopLandmarks:'assets/rooftop-landmarks-v1.png'
+};
 let illustrationLoading=false;
+function requiredIllustrations(){
+  const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['rooftop','rooftopEnvironment','rooftopLandmarks']];
+  return ['cat','environment','signs',...chapters[worldIndex()]];
+}
+function updateIllustrationStatus(){
+  const required=requiredIllustrations(),wasLoading=illustrationLoading;
+  illustrationLoading=required.some(key=>illustrationStates[key]==='loading');
+  const failed=required.some(key=>illustrationStates[key]==='error');
+  $('primary').disabled=illustrationLoading;
+  $('artLoading').hidden=!illustrationLoading||state==='menu';
+  $('assetStatus').hidden=!illustrationLoading&&!failed;
+  $('assetStatus').textContent=illustrationLoading?'正在翻开绘本…':failed?'部分插画未载入，仍可继续散步。':'';
+  if(wasLoading&&!illustrationLoading)clearInput();
+}
 function loadIllustrations(){
   if(typeof Image==='undefined')return;
-  const files={cat:'assets/cat-gouache-v1.png',forest:'assets/forest-dawn-v1.jpg',environment:'assets/woodland-atlas-v1.png',signs:'assets/signs-gouache-v1.png',
-    harbor:'assets/harbor-afternoon-v1.jpg',harborEnvironment:'assets/harbor-atlas-v1.png',warehouse:'assets/harbor-warehouse-v1.png'};
-  let pending=Object.keys(files).length,failed=0;
-  illustrationLoading=true;$('primary').disabled=true;
-  $('assetStatus').hidden=false;$('assetStatus').textContent='正在翻开绘本…';
-  for(const [key,src] of Object.entries(files)){
+  for(const key of requiredIllustrations()){
+    if(illustrationStates[key])continue;
+    illustrationStates[key]='loading';
     const img=new Image();
     const settled=()=>{
-      pending--;
-      if(pending)return;
-      illustrationLoading=false;$('primary').disabled=false;
-      $('assetStatus').hidden=failed===0;
-      $('assetStatus').textContent=failed?'部分插画未载入，仍可继续散步。':'';
-      rebuildBackground();
+      updateIllustrationStatus();
+      if(!illustrationLoading&&requiredIllustrations().includes(key))rebuildBackground();
     };
-    img.onload=()=>{illustrations[key]=img;settled();};
-    img.onerror=()=>{failed++;settled();};
-    img.src=src;
+    img.onload=()=>{illustrations[key]=img;illustrationStates[key]='ready';settled();};
+    img.onerror=()=>{illustrationStates[key]='error';settled();};
+    img.src=illustrationFiles[key];
   }
+  updateIllustrationStatus();
 }
 let W = 960;
 const H = 540, STEP = 1 / 120;
@@ -382,7 +397,7 @@ function start(i=0,resume=false){
   rememberRun();
   elapsed=0;deaths=0;loadLevel(clampLevel(i),resume);continueLevel=levelIndex;
   state='play';save();$('overlay').hidden=true;$('selectPanel').hidden=true;
-  canvas.focus({preventScroll:true});unlockAudio();
+  canvas.focus({preventScroll:true});unlockAudio();loadIllustrations();
 }
 function burst(x,y,color,count=12){for(let i=0;i<count;i++)particles.push({x,y,vx:(Math.random()-.5)*150,vy:-Math.random()*120,life:.4+Math.random()*.3,color});}
 function die(reason='失足也没关系，马上再来。'){
@@ -435,7 +450,7 @@ function showSaveNote(){
 }
 function overlap(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 function update(dt){
-  if(state!=='play')return;
+  if(state!=='play'||illustrationLoading)return;
   elapsed+=dt;time+=dt;shake=Math.max(0,shake-dt*22);landing=Math.max(0,landing-dt*4);
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=260*dt;p.life-=dt;}particles=particles.filter(p=>p.life>0);
   if(deathDelay>0){deathDelay-=dt;if(deathDelay<=0)spawn();return;}
@@ -573,6 +588,7 @@ function drawBoard(b,i){
   ctx.save();ctx.translate(jitter,0);
   if(worldIndex()===0&&illustrations.environment)drawPaintedPlatform(b);
   else if(worldIndex()===1&&illustrations.harborEnvironment)drawPaintedDock(b);
+  else if(worldIndex()===2&&illustrations.rooftopEnvironment)drawPaintedRoof(b);
   else{
   ctx.fillStyle=b.bonus?'#c99b78':b.ice?'#a6d6e7':worldIndex()===2?'#6e789b':worldIndex()===1?'#a4b8b6':b.fragile?'#b79b75':'#b9b08a';ctx.strokeStyle=worldIndex()===2?'#3c4866':'#68634d';ctx.lineWidth=1.6;
   ctx.beginPath();ctx.moveTo(b.x,b.y+1);ctx.lineTo(b.x+b.w,b.y);ctx.lineTo(b.x+b.w-4,b.y+19);ctx.lineTo(b.x+5,b.y+22);ctx.closePath();ctx.fill();ctx.stroke();
@@ -628,8 +644,44 @@ function drawPaintedDock(b){
   ctx.drawImage(image,sourceX+90,sourceY,332,sourceHeight,b.x+cap,y,b.w-cap*2,sourceHeight*scale);
   ctx.drawImage(image,sourceX+422,sourceY,90,sourceHeight,b.x+b.w-cap,y,cap,sourceHeight*scale);
 }
+function drawPaintedRoof(b){
+  const image=illustrations.rooftopEnvironment;
+  const belt=!!b.belt,scale=belt?.2:.18;
+  const sourceX=belt?0:b.ice?512:b.fragile?1024:0;
+  const sourceY=belt?720:180,sourceHeight=belt?190:230;
+  const leftPixels=belt?140:86,rightPixels=belt?132:86;
+  const leftWidth=leftPixels*scale,rightWidth=rightPixels*scale;
+  const centerPixels=512-leftPixels-rightPixels;
+  const y=b.y-(belt?18:10)*scale,centers=[b.x+15.6,b.x+b.w-15];
+  ctx.drawImage(image,sourceX,sourceY,leftPixels,sourceHeight,b.x,y,leftWidth,sourceHeight*scale);
+  const end=b.x+b.w-rightWidth;
+  if(b.fragile){
+    ctx.drawImage(image,sourceX+leftPixels,sourceY,centerPixels,sourceHeight,b.x+leftWidth,y,end-b.x-leftWidth,sourceHeight*scale);
+  }else{
+    // Tile the center at its native scale so brass rollers stay round.
+    for(let x=b.x+leftWidth;x<end;x+=centerPixels*scale){
+      const width=Math.min(centerPixels*scale,end-x);
+      ctx.drawImage(image,sourceX+leftPixels,sourceY,width/scale,sourceHeight,x,y,width,sourceHeight*scale);
+      if(belt&&width>27)centers.push(x+23.2);
+    }
+  }
+  ctx.drawImage(image,sourceX+512-rightPixels,sourceY,rightPixels,sourceHeight,end,y,rightWidth,sourceHeight*scale);
+  if(belt){
+    const angle=time*b.belt*.04,dx=Math.cos(angle)*3.5,dy=Math.sin(angle)*3.5;
+    for(const x of centers){
+      line(ctx,[[x-dx,b.y+22.4-dy],[x+dx,b.y+22.4+dy]],'#755735',.7);
+      line(ctx,[[x+dy,b.y+22.4-dx],[x-dy,b.y+22.4+dx]],'#755735',.7);
+    }
+  }
+}
 function drawPaintedBackdrop(){
-  const image=worldIndex()===1?illustrations.harbor:illustrations.forest;
+  const image=[illustrations.forest,illustrations.harbor,illustrations.rooftop][worldIndex()];
+  if(worldIndex()===2){
+    // Cover the entire parallax travel with one panorama, retaining a single round moon.
+    const width=Math.max(810,camera.w+(W-camera.w)*.18);
+    ctx.drawImage(image,camera.x*.82,0,width,width*2/3);
+    return;
+  }
   const width=810,offset=camera.x*.18;
   for(let tile=Math.floor(offset/width);tile<=Math.floor((offset+camera.w)/width);tile++){
     const x=tile*width+camera.x*.82;
@@ -832,6 +884,9 @@ function drawPaintedHarborShowcase(){
   for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])sceneLabel(label,x,y,{center:true,important:true});
 }
 function drawRouteLandmark(kind,x,y,destination=false){
+  if(worldIndex()===2&&illustrations.rooftopEnvironment&&illustrations.rooftopLandmarks){
+    drawPaintedRooftopObject(kind,x,y,destination);return;
+  }
   if(worldIndex()===1&&illustrations.harborEnvironment&&drawPaintedHarborObject(kind,x,y,destination))return;
   if(worldIndex()===0&&illustrations.environment&&['tree','gate','arch'].includes(kind)){
     const scale=destination?.45:kind==='tree'?.36:.4;
@@ -890,17 +945,33 @@ function drawRouteLandmark(kind,x,y,destination=false){
   }
   ctx.restore();
 }
+function drawPaintedRooftopObject(kind,x,y,destination){
+  if(kind==='roof'){
+    ctx.drawImage(illustrations.rooftopEnvironment,1024,600,512,380,x-66.6,y-91.8,133.1,98.8);
+  }else if(kind==='chimney'){
+    ctx.drawImage(illustrations.rooftopEnvironment,600,520,320,500,x-54.4,y-166.6,108.8,170);
+    for(let i=0;i<3;i++){
+      ctx.globalAlpha=.07-i*.015;
+      oval(ctx,x+Math.sin(time*.6+i)*5,y-171-i*12,6+i*3,5+i*3,'#d3cbdc');
+    }
+    ctx.globalAlpha=1;
+  }else{
+    const column=kind==='clock'?0:kind==='arch'?2:1;
+    const scale=kind==='clock'?.23:destination?.30:.26;
+    ctx.drawImage(illustrations.rooftopLandmarks,column*512,0,512,1024,x-256*scale,y-1000*scale,512*scale,1024*scale);
+  }
+}
 function drawAuthoredLandmarks(){
   for(const section of level.sections){
     const b=boards[section.board],x=b.x+b.w*.65;
     if(x<camera.x-220||x>camera.x+camera.w+220)continue;
     const isEnd=section.board===exitIndex();
     let landmarkX=x;
-    if((worldIndex()===0&&illustrations.environment)||(worldIndex()===1&&illustrations.harborEnvironment))landmarkX=b.x+b.w*.5;
+    if((worldIndex()===0&&illustrations.environment)||(worldIndex()===1&&illustrations.harborEnvironment)||(worldIndex()===2&&illustrations.rooftopLandmarks))landmarkX=b.x+b.w*.5;
     if(isEnd)landmarkX=level.finishX+12;
     if(levelIndex===1&&section.board===4)drawOrchardShelter();
     else drawRouteLandmark(section.kind,landmarkX,b.y,isEnd);
-    if(levelIndex!==1||section.board!==4)sceneLabel(section.name+' →',x,b.y-125,{center:true});
+    if(levelIndex!==1||section.board!==4)sceneLabel(section.name+' →',x,b.y-(section.kind==='clock'?170:125),{center:true});
   }
   const end=boards[exitIndex()];
   if(!level.sections.some(s=>s.board===exitIndex()))drawRouteLandmark(level.sections[level.sections.length-1].kind,level.finishX+12,end.y,true);
@@ -921,7 +992,7 @@ function draw(){
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
   ctx.save();ctx.translate(-camera.x,-camera.y);
-  if((worldIndex()===0&&illustrations.forest)||(worldIndex()===1&&illustrations.harbor))drawPaintedBackdrop();
+  if([illustrations.forest,illustrations.harbor,illustrations.rooftop][worldIndex()])drawPaintedBackdrop();
   else for(let tile=Math.floor(camera.x/960);tile<=Math.floor((camera.x+camera.w)/960);tile++)ctx.drawImage(background,tile*960,0);
   if(shake)ctx.translate(Math.sin(time*90)*shake,Math.cos(time*70)*shake*.5);
   // Tiny drifting pollen is decorative; collision surfaces stay perfectly stable.
@@ -965,7 +1036,7 @@ function draw(){
   $('routeMeter').setAttribute('aria-valuenow',String(Math.round(Math.max(0,Math.min(100,(cat.x+cat.w)/W*100)))));
 }
 function next(){
-  if(state==='menu'&&illustrationLoading)return;
+  if(illustrationLoading)return;
   unlockAudio();
   if(state==='menu')start(continueLevel,true);
   else if(state==='pause')pause();
@@ -1005,6 +1076,7 @@ function showLevels(chapter=worldIndex()){
   $('selectPanel').hidden=false;$('closeLevels').focus({preventScroll:true});
 }
 function down(code,repeat=false){
+  if(illustrationLoading&&code!=='Escape')return;
   if(!$('selectPanel').hidden){if(code==='Escape'&&!repeat)$('selectPanel').hidden=true;return;}
   if(['Space','ArrowUp','KeyW'].includes(code)&&!repeat){
     if(state==='menu'){next();return;}if(state==='play'){buffer=.12;jumpHeld=true;unlockAudio();}
@@ -1036,7 +1108,7 @@ $('fullscreen').onclick=async()=>{
 };
 document.addEventListener('fullscreenchange',fullscreenLabel);
 function touchDown(b,id){
-  if(state!=='play')return;
+  if(state!=='play'||illustrationLoading)return;
   touchPointers.set(id,b);b.setAttribute('aria-pressed','true');down(b.dataset.key);
 }
 function touchUp(id){

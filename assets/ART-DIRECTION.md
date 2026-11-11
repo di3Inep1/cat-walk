@@ -1,6 +1,6 @@
 # 绘本美术
 
-本批使用内置 imagegen 生成，六帧猫猫与环境图集保留原始透明 PNG。森林背景转为 JPEG，以减少手机加载量。文件均保存在此目录，运行时按原始图集坐标裁切绘制。
+本批使用内置 imagegen 生成，角色与环境图集保留原始透明 PNG。各章背景转为 JPEG，以减少手机加载量。文件均保存在此目录，运行时按原始图集坐标裁切绘制。共同素材与当前章节素材按需加载，其他章节在进入时加载并缓存。
 
 - cat-gouache-v1.png，1536 × 1024，站立、三个奔跑姿态、上升、下落。动作脚底对齐，碰撞盒由游戏逻辑决定。
 - forest-dawn-v1.jpg，1536 × 1024，第一章三关使用，慢速视差与镜像衔接。
@@ -9,10 +9,25 @@
 - harbor-afternoon-v1.jpg，1536 × 1024，第二章三关使用的午后海港视差背景。
 - harbor-atlas-v1.png，1536 × 1024，木栈桥、蓝色弹性垫、货箱、帆船、吊架与灯塔。走道和弹性垫顶面按物理坐标放置。
 - harbor-warehouse-v1.png，1536 × 1024，独立的开敞式货仓，中央开口保留透明，穿行路线在前景绘制。
+- rooftop-moonlight-v1.jpg，1536 × 1024，第三章三关共用的单幅月夜全景，视差移动覆盖整关，保持月亮唯一且比例正确。
+- rooftop-atlas-v1.png，1536 × 1024，普通屋瓦、薄霜、裂纹旧瓦、滚轮屋瓦、烟囱和天窗。滚轮采用固定比例平铺，箭头与滚轮转动实时绘制。
+- rooftop-landmarks-v1.png，1536 × 1024，钟楼、暖窗阁楼门与通透砖拱门，入口下缘和终点平台对齐。
 
-猫猫、路灯、鱼干与提示牌应用于全部章节。第一章和第二章的背景与主要场景素材已使用绘本美术，屋顶环境仍使用原有画法。
+三章背景、平台与主要场景地标均采用绘本美术。猫猫、路灯、鱼干与提示牌应用于全部章节，机关标识在插画上叠加绘制。
 
 ## 实际生成提示词
+
+### 第三章月夜背景
+
+Use case: illustration-story. Finished distant background for an original premium 2D hand-painted cat adventure. Wide landscape 3:2, ideally 1536x1024. A quiet moonlit old-town roofscape with layered distant gabled houses, a few tall chimneys and a distant bell tower, deep twilight indigo sky, a soft ivory full moon at upper right, sparse tiny stars, a handful of warm amber windows far away. Sophisticated gouache washes, colored-pencil edges, tactile paper grain matching a warm woodland/harbor storybook. Restrained midnight blue, dusty lavender, desaturated slate, pale silver-blue moonlight and tiny warm honey accents. Low-contrast atmospheric layers, central action field spacious and legible, dark sky still contains soft detail. Distant roof silhouettes mostly in lower 55%, they are background scenery only. No close foreground buildings or platforms, no walkable ledges, no characters, no cats, no text or UI. Same gentle sky and roof colors at both horizontal edges for mirrored scrolling. Entire image opaque. Enchanting, cozy and contemplative, finely painted, no harsh black silhouette masses.
+
+### 第三章屋瓦与装饰图集
+
+Use case: illustration-story. TRUE TRANSPARENT PNG production sprite atlas for a polished hand-painted moonlit rooftop cat platformer, gouache and colored pencil, muted slate blue and weathered plum roof tiles, silver frost, warm brass details. Exactly THREE columns and TWO rows, ideally 1536x1024, six equal 512x512 cells, all objects wholly within their own cells with transparent padding, no borders or captions. TOP LEFT: straight HORIZONTAL WALKABLE roof ledge, dark blue-purple rounded clay tiles in two rows, worn mossy seams and old timber fascia below, FLAT top edge, nearly full cell width, occupies middle third of cell height. TOP MIDDLE: the same flat roof ledge with clearly visible continuous PALE ICE BLUE frost across its top, tiny crystalline streaks, a little glassy sheen, flat top, not white snow. TOP RIGHT: the same flat roof ledge visibly OLD AND CRACKED, one strong jagged split through the center tile and wooden fascia, a few tiny chipped tile corners, warm exposed clay inside the split, clear flat walkable top. BOTTOM LEFT: a horizontal mechanical moving roof ledge, flat dark slate top carried on clearly visible small BRASS ROLLERS with riveted supports, empty dark top strip for arrows to be drawn later, nearly full width, middle third of cell height; no drawn arrows or text. BOTTOM MIDDLE: one complete quaint weathered brick chimney in straight side elevation, dusty red-brown bricks with slate cap and a copper flue, small dark opening, moss at base, base at 90% cell height. BOTTOM RIGHT: one complete low attic SKYLIGHT dormer, rounded weathered blue timber frame with a tiny pitched slate canopy and softly glowing amber glass divided into small panes, no door, base at 90% cell height. True alpha outside every asset, no ground or cast floor shadows, no characters, no lettering, no watermark. Sharp readable silhouettes at small gameplay size.
+
+### 第三章地标图集
+
+Use case: illustration-story. A TRUE TRANSPARENT environment atlas for a premium 2D hand-painted moonlit rooftop cat adventure. Exactly THREE columns in ONE row, total 1536x1024 preferred, three equal 512x1024 cells, no boundaries, no text, no captions. Professional gouache and colored-pencil texture, desaturated midnight slate and dusty lavender wood, aged brick and stone, soft honey window light, warm inviting atmosphere. Each complete object fits wholly within its own column with generous transparent padding, base at global y=940. LEFT COLUMN: a slender charming old clock tower, complete slate spire, small brass bell canopy, large warm cream clock face with clearly drawn clock hands and NO numbers or letters, weathered brick shaft with one small amber window, tiny arched wooden entrance at bottom. This tower occupies most of the column height, starts around y=80, entire silhouette visible. MIDDLE COLUMN: a cozy attic entrance dormer with a low pitched blue-slate canopy, tall arched amber glazed wooden door, softly lit interior behind glass, tiny cat flap at bottom, two small terracotta pots and a little ivy near base, height around 600 pixels in lower portion of column, no floor extending out of cell. RIGHT COLUMN: a small old arched brick gateway between rooftops, rough warm gray stones with a few missing edge chips and sparse ivy, a simple hanging amber lantern, GENUINELY TRANSPARENT open archway, height around 650 pixels in lower portion of column. Exact side/front elevation, no perspective floor or ground. True alpha background outside buildings and inside open gateway. No characters, no lettering, no extra props outside the three cells, no watermark.
 
 ### 第二章海港背景
 
