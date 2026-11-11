@@ -10,12 +10,17 @@
 - harbor-atlas-v1.png，1536 × 1024，木栈桥、蓝色弹性垫、货箱、帆船、吊架与灯塔。走道和弹性垫顶面按物理坐标放置。
 - harbor-warehouse-v1.png，1536 × 1024，独立的开敞式货仓，中央开口保留透明，穿行路线在前景绘制。
 - rooftop-moonlight-v1.jpg，1536 × 1024，第三章三关共用的单幅月夜全景，视差移动覆盖整关，保持月亮唯一且比例正确。
-- rooftop-atlas-v1.png，1536 × 1024，普通屋瓦、薄霜、裂纹旧瓦、滚轮屋瓦、烟囱和天窗。滚轮采用固定比例平铺，箭头与滚轮转动实时绘制。
+- rooftop-atlas-v1.png，1536 × 1024，普通屋瓦、薄霜、裂纹旧瓦、烟囱和天窗。原图中的工业滚轮不再使用。
 - rooftop-landmarks-v1.png，1536 × 1024，钟楼、暖窗阁楼门与通透砖拱门，入口下缘和终点平台对齐。
+- rooftop-sliding-eave-v1.png，1536 × 1024，独立透明滑动瓦檐。蓝紫屋瓦、旧木檐与两端嵌入的小齿轮沿用第三章的绘本色调。中央瓦面按带速和方向平铺滚动，两端固定，仅叠加细小方向标记与齿轮转动。可踩顶面与原碰撞面一致。
 
 三章背景、平台与主要场景地标均采用绘本美术。猫猫、路灯、鱼干与提示牌应用于全部章节，机关标识在插画上叠加绘制。
 
 ## 实际生成提示词
+
+### 第三章滑动瓦檐
+
+Use case: illustration-story. One finished TRUE TRANSPARENT production platform sprite for a premium 2D hand-painted moonlit rooftop cat adventure. Landscape 3:2 canvas, ideally 1536x1024. A single long horizontal OLD ROOFTOP EAVE, matching weathered blue-purple rounded clay shingles and dark aged timber in a gouache and colored-pencil storybook. Two rows of richly painted slate-plum roof tiles, subtle moss and silver moonlit edges, a CLEAR STRAIGHT FLAT WALKABLE UPPER RIDGE. Natural wooden fascia below. Two SMALL recessed brass gear housings integrated at the FAR LEFT and FAR RIGHT under the fascia, with small cog centers, understated old clockwork that could gently slide the roof shingles. The middle 70% is uninterrupted ordinary roof tiles and old wood, no exposed rollers, nothing resembling a factory machine. It must visually belong beside normal tiled rooftop ledges. The gear housings are details in the eave, not large wheels underneath. Whole asset fully visible, occupies approximately x=70..1466 and y=350..660, with transparent padding everywhere else. Side elevation, no perspective floor. Beautiful tactile painterly detail, restrained warm brass, indigo and dusty lavender. NO rubber conveyor belt, no black industrial slab, no warning stripes, no railings, no arrows, no characters, no letters, no text, no watermark. True alpha outside the isolated silhouette.
 
 ### 第三章月夜背景
 

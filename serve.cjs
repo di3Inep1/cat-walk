@@ -4,6 +4,7 @@ Object.assign(types,{'/assets/cat-gouache-v1.png':'image/png','/assets/woodland-
 types['/assets/signs-gouache-v1.png']='image/png';
 Object.assign(types,{'/assets/harbor-afternoon-v1.jpg':'image/jpeg','/assets/harbor-atlas-v1.png':'image/png','/assets/harbor-warehouse-v1.png':'image/png'});
 Object.assign(types,{'/assets/rooftop-moonlight-v1.jpg':'image/jpeg','/assets/rooftop-atlas-v1.png':'image/png','/assets/rooftop-landmarks-v1.png':'image/png'});
+types['/assets/rooftop-sliding-eave-v1.png']='image/png';
 const lan=process.argv.includes('--lan'),port=Number(process.env.PORT||4173);
 const server=http.createServer((req,res)=>{
   let name=new URL(req.url,'http://localhost').pathname;

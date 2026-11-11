@@ -232,6 +232,24 @@ assert.equal(old.run('continueLevel'),1);
 assert.equal(old.run('cleared[0]'),true);
 assert.equal(old.run('Object.keys(records).length'),0,'Old clears do not invent scores');
 assert.equal(boot({'tiny-trouble-long-v1':'broken json'}).run('levelIndex'),0);
+// Passing through a sign changes its opacity, never its world position.
+const labels=boot();
+labels.run(`start(6);camera.x=0;camera.y=0;camera.w=640;camera.h=360;camera.cssWidth=640;
+sceneLabels=[];sceneLabel('第二段屋脊 →',160,220,{important:true});
+const labelDraws=[];ctx.fillText=(text,x,y)=>labelDraws.push({text,x,y,alpha:ctx.globalAlpha});
+cat.x=20;cat.y=300;drawSceneLabels();`);
+const fixedLabel=JSON.parse(labels.run('JSON.stringify(labelDraws.at(-1))'));
+labels.run('cat.x=170;cat.y=190;for(let n=0;n<15;n++)drawSceneLabels()');
+assert.ok(labels.run('labelDraws.at(-1).alpha')<.15,'The sign fades when the cat crosses it');
+labels.run('cat.x=20;cat.y=300;for(let n=0;n<15;n++)drawSceneLabels()');
+assert.ok(labels.run('labelDraws.at(-1).alpha')>.95,'The sign returns after the cat leaves');
+labels.run('camera.x=60;camera.y=12;drawSceneLabels()');
+for(const label of JSON.parse(labels.run('JSON.stringify(labelDraws)'))){
+  assert.equal(label.x,fixedLabel.x,'Neither jumping nor the camera can push the sign sideways');
+  assert.equal(label.y,fixedLabel.y,'Neither jumping nor the camera can push the sign upwards');
+}
+labels.run('start(6)');
+assert.equal(labels.run('sceneLabelOpacity.size'),0,'Restart clears the previous sign fade');
 const blocked=boot();
 blocked.context.localStorage.setItem=()=>{throw new Error('Storage blocked')};
 blocked.run('start(0);pause()');
@@ -253,7 +271,7 @@ for(let i=0;i<9;i++){
   for(const img of painted.imageRequests.slice(previous))img.onload();
   painted.run('draw();cat.vx=240;time=1;draw();cat.ground=false;cat.vy=-400;draw();cat.vy=200;draw()');
 }
-assert.equal(painted.imageRequests.length,10,'Each illustration is loaded once across all chapters');
+assert.equal(painted.imageRequests.length,11,'Each illustration is loaded once across all chapters');
 painted.run('const nightImages=[];ctx.drawImage=(...args)=>nightImages.push(args);camera.x=0;drawPaintedBackdrop();camera.x=W-camera.w;drawPaintedBackdrop()');
 assert.equal(painted.run('nightImages.length'),2,'A single moon panorama is drawn at either map edge');
 assert.equal(painted.run('nightImages.every(args=>Math.abs(args[3]/args[4]-1.5)<.001)'),true,'The moon retains its round shape');
@@ -269,9 +287,9 @@ for(const img of switching.imageRequests.slice(4))img.onload();
 assert.equal(switching.run('levelIndex'),0,'Late images cannot switch the current chapter');
 assert.equal(switching.run('illustrationLoading'),false);
 switching.run('start(6)');
-assert.equal(switching.imageRequests.length,7,'Returning to a chapter uses the loaded assets');
+assert.equal(switching.imageRequests.length,8,'Returning to a chapter uses the loaded assets');
 const moonStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],continueLevel:6})},true);
-assert.equal(moonStart.imageRequests.length,6,'Direct rooftop entry loads shared art and its three images');
+assert.equal(moonStart.imageRequests.length,7,'Direct rooftop entry loads shared art and its four images');
 assert.ok(moonStart.imageRequests.every(img=>!img.url.includes('forest')&&!img.url.includes('harbor')));
 const oldPage=boot({},true),oldLookup=oldPage.context.document.getElementById;
 oldPage.context.document.getElementById=id=>id==='artLoading'?null:oldLookup(id);

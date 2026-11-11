@@ -8,11 +8,12 @@ const illustrationFiles={
   cat:'assets/cat-gouache-v1.png',environment:'assets/woodland-atlas-v1.png',signs:'assets/signs-gouache-v1.png',
   forest:'assets/forest-dawn-v1.jpg',harbor:'assets/harbor-afternoon-v1.jpg',
   harborEnvironment:'assets/harbor-atlas-v1.png',warehouse:'assets/harbor-warehouse-v1.png',
-  rooftop:'assets/rooftop-moonlight-v1.jpg',rooftopEnvironment:'assets/rooftop-atlas-v1.png',rooftopLandmarks:'assets/rooftop-landmarks-v1.png'
+  rooftop:'assets/rooftop-moonlight-v1.jpg',rooftopEnvironment:'assets/rooftop-atlas-v1.png',rooftopLandmarks:'assets/rooftop-landmarks-v1.png',
+  slidingEave:'assets/rooftop-sliding-eave-v1.png'
 };
 let illustrationLoading=false;
 function requiredIllustrations(){
-  const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['rooftop','rooftopEnvironment','rooftopLandmarks']];
+  const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['rooftop','rooftopEnvironment','rooftopLandmarks','slidingEave']];
   return ['cat','environment','signs',...chapters[worldIndex()]];
 }
 function updateIllustrationStatus(){
@@ -382,6 +383,7 @@ function spawn(){
 }
 function loadLevel(i,resume=false){
   levelIndex=i;level=LEVELS[i];checkpoint=-1;time=0;fakeTriggered=false;lessonSeen=new Set();
+  sceneLabelOpacity.clear();
   W=level.width;
   $('app').setAttribute('data-world',world().scene);
   boards=level.boards.map(([x,y,w],index)=>({x,y,w,h:18,...level.traits[index],crack:-1}));
@@ -603,7 +605,10 @@ function drawBoard(b,i){
     line(ctx,[[b.x+12,b.y+15],[b.x+23,b.y+8],[b.x+34,b.y+15],[b.x+45,b.y+8]],'#527c8c',1.6);
   }
   if(b.ice)for(let x=b.x+10;x<b.x+b.w-15;x+=25)line(ctx,[[x,b.y+5],[x+12,b.y+2]],'#e6f5fc',2);
-  if(b.belt){const direction=Math.sign(b.belt);for(let x=b.x+14;x<b.x+b.w-12;x+=22)line(ctx,[[x-direction*4,b.y+6],[x+direction*4,b.y+10],[x-direction*4,b.y+14]],'#f2dca9',1.8);}
+  if(b.belt){
+    const direction=Math.sign(b.belt);
+    for(const x of [b.x+18,b.x+b.w-18])line(ctx,[[x-direction*3,b.y+11],[x+direction*3,b.y+14],[x-direction*3,b.y+17]],'#dfc793',1);
+  }
   if(level.checks.includes(i)){
     const lit=checkpoint>=0&&b.x<=boards[checkpoint].x;
     if(illustrations.environment)drawPaintedLamp(b.x+40,b.y,lit);
@@ -646,33 +651,44 @@ function drawPaintedDock(b){
   ctx.drawImage(image,sourceX+422,sourceY,90,sourceHeight,b.x+b.w-cap,y,cap,sourceHeight*scale);
 }
 function drawPaintedRoof(b){
+  if(b.belt&&illustrations.slidingEave){drawSlidingEave(b);return;}
   const image=illustrations.rooftopEnvironment;
-  const belt=!!b.belt,scale=belt?.2:.18;
-  const sourceX=belt?0:b.ice?512:b.fragile?1024:0;
-  const sourceY=belt?720:180,sourceHeight=belt?190:230;
-  const leftPixels=belt?140:86,rightPixels=belt?132:86;
+  const scale=.18;
+  const sourceX=b.ice?512:b.fragile?1024:0;
+  const sourceY=180,sourceHeight=230;
+  const leftPixels=86,rightPixels=86;
   const leftWidth=leftPixels*scale,rightWidth=rightPixels*scale;
   const centerPixels=512-leftPixels-rightPixels;
-  const y=b.y-(belt?18:10)*scale,centers=[b.x+15.6,b.x+b.w-15];
+  const y=b.y-10*scale;
   ctx.drawImage(image,sourceX,sourceY,leftPixels,sourceHeight,b.x,y,leftWidth,sourceHeight*scale);
   const end=b.x+b.w-rightWidth;
   if(b.fragile){
     ctx.drawImage(image,sourceX+leftPixels,sourceY,centerPixels,sourceHeight,b.x+leftWidth,y,end-b.x-leftWidth,sourceHeight*scale);
   }else{
-    // Tile the center at its native scale so brass rollers stay round.
+    // Tile the center at its native scale to retain the shingle proportions.
     for(let x=b.x+leftWidth;x<end;x+=centerPixels*scale){
       const width=Math.min(centerPixels*scale,end-x);
       ctx.drawImage(image,sourceX+leftPixels,sourceY,width/scale,sourceHeight,x,y,width,sourceHeight*scale);
-      if(belt&&width>27)centers.push(x+23.2);
     }
   }
   ctx.drawImage(image,sourceX+512-rightPixels,sourceY,rightPixels,sourceHeight,end,y,rightWidth,sourceHeight*scale);
-  if(belt){
-    const angle=time*b.belt*.04,dx=Math.cos(angle)*3.5,dy=Math.sin(angle)*3.5;
-    for(const x of centers){
-      line(ctx,[[x-dx,b.y+22.4-dy],[x+dx,b.y+22.4+dy]],'#755735',.7);
-      line(ctx,[[x+dy,b.y+22.4-dx],[x-dy,b.y+22.4+dx]],'#755735',.7);
-    }
+}
+function drawSlidingEave(b){
+  const image=illustrations.slidingEave,scale=.12;
+  const cap=270*scale,height=330*scale,y=b.y-23*scale;
+  const left=b.x+cap,right=b.x+b.w-cap,tileWidth=384*scale;
+  const offset=((time*b.belt)%tileWidth+tileWidth)%tileWidth;
+  ctx.save();ctx.beginPath();ctx.rect(left,y,right-left,height);ctx.clip();
+  for(let x=left-tileWidth+offset;x<right;x+=tileWidth){
+    ctx.drawImage(image,480,350,384,330,x,y,tileWidth,height);
+  }
+  ctx.restore();
+  ctx.drawImage(image,0,350,270,330,b.x,y,cap,height);
+  ctx.drawImage(image,1266,350,270,330,right,y,cap,height);
+  const angle=time*b.belt*.04,dx=Math.cos(angle)*2.7,dy=Math.sin(angle)*2.7;
+  for(const x of [b.x+18.6,b.x+b.w-18]){
+    line(ctx,[[x-dx,b.y+29-dy],[x+dx,b.y+29+dy]],'#d0ae68',.8);
+    line(ctx,[[x+dy,b.y+29-dx],[x-dy,b.y+29+dx]],'#d0ae68',.8);
   }
 }
 function drawPaintedBackdrop(){
@@ -693,6 +709,7 @@ function drawPaintedBackdrop(){
   }
 }
 let sceneLabels=[];
+const sceneLabelOpacity=new Map();
 function sceneLabel(text,x,y,{tone='guide',center=false,important=false}={}){
   sceneLabels.push({text,x,y,tone,center,important});
 }
@@ -704,27 +721,29 @@ function drawPaintedSign(x,y,width,height,wood){
   ctx.drawImage(image,198,top,1140,sourceHeight,x+cap,y,width-cap*2,height);
   ctx.drawImage(image,1338,top,180,sourceHeight,x+width-cap,y,cap,height);
 }
-function drawSceneLabels(){
+function drawSceneLabels(dt=1/60){
   // Keep text readable in CSS pixels, independently of the near-follow camera.
   const size=Math.max(10,15*camera.w/(camera.cssWidth||camera.w));
   const padding=size*1.15,height=size*2.15;
   const themes=[['#fff4d8','#34462f','#908263'],['#f3f5e7','#294957','#7f9696'],['#28334b','#fff1d0','#a5b5cd']];
-  const obstacles=[{x:cat.x-8,y:cat.y-8,w:cat.w+16,h:cat.h+16},
-    ...boards.map(b=>({x:b.x,y:b.y-7,w:b.w,h:30})),
-    ...fish.filter(f=>!f.got).map(f=>({x:f.x-18,y:f.y-12,w:36,h:24})),
-    ...level.saws.map(s=>({x:s.x+Math.sin(time*1.8)*s.range-s.r-6,y:s.y-s.r-6,w:s.r*2+12,h:s.r*2+12}))];
-  const placed=[];
   ctx.save();ctx.font='600 '+size+'px "KaiTi","STKaiti","Kaiti SC","Microsoft YaHei",serif';ctx.textAlign='left';ctx.textBaseline='middle';
   for(const label of sceneLabels.sort((a,b)=>Number(b.important)-Number(a.important))){
-    if(label.x<camera.x||label.x>camera.x+camera.w||label.y<camera.y-32||label.y>camera.y+camera.h+32)continue;
     const width=ctx.measureText(label.text).width+padding*2;
     const left=label.center?label.x-width/2:label.x;
-    const x=Math.max(camera.x+8,Math.min(left,camera.x+camera.w-width-8));
-    const top=Math.max(camera.y+8,Math.min(label.y-height,camera.y+camera.h-height-8));
-    const candidates=[top,top-height-6,top+height+6,top-height*2-12];
-    const y=candidates.find(y=>y>=camera.y+8&&y+height<=camera.y+camera.h-8&&
-      ![...obstacles,...placed].some(area=>overlap({x,y,w:width,h:height},area)));
-    if(y===undefined)continue;
+    // World anchors stay fixed. Neither the cat nor camera edges can displace a sign.
+    const x=Math.max(8,Math.min(left,W-width-8));
+    const y=Math.max(8,Math.min(label.y-height,H-height-8));
+    if(x+width<camera.x||x>camera.x+camera.w||y+height<camera.y||y>camera.y+camera.h)continue;
+    const dx=Math.max(cat.x-14-x-width,x-cat.x-cat.w-14,0);
+    const dy=Math.max(cat.y-16-y-height,y-cat.y-cat.h-4,0);
+    const proximity=.1+.9*Math.min(1,Math.hypot(dx,dy)/(size*1.8));
+    const edge=Math.min(x-camera.x,camera.x+camera.w-x-width,y-camera.y,camera.y+camera.h-y-height);
+    const target=proximity*Math.max(0,Math.min(1,(edge+8)/20));
+    const key=label.text+'|'+label.x+'|'+label.y;
+    const previous=sceneLabelOpacity.get(key)??target;
+    const opacity=previous+(target-previous)*(1-Math.exp(-dt*16));
+    sceneLabelOpacity.set(key,opacity);
+    ctx.globalAlpha=opacity;
     const [paper,ink,border]=label.tone==='warning'?['#fff0d5','#713b29','#b4805d']:themes[worldIndex()];
     if(illustrations.signs)drawPaintedSign(x,y,width,height,label.important);
     else{
@@ -733,7 +752,6 @@ function drawSceneLabels(){
     }
     ctx.fillStyle=illustrations.signs?(label.tone==='warning'?'#783d2a':'#403c2d'):ink;
     ctx.fillText(label.text,x+padding,y+height*.51);
-    placed.push({x:x-4,y:y-4,w:width+8,h:height+8});
   }
   ctx.restore();
 }
@@ -988,7 +1006,7 @@ function drawOrchardShelter(){
   sceneLabel('安全木道 →',900,425,{important:true});
   sceneLabel('↓ 回到木道',1205,270,{important:true});
 }
-function draw(){
+function draw(dt=1/60){
   sceneLabels=[];
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
@@ -1028,7 +1046,7 @@ function draw(){
     if(illustrations.environment)ctx.drawImage(illustrations.environment,1124,693,310,150,f.x-12,y-5.8,24,11.6);
     else{oval(ctx,f.x,y,9,4,'#c2954e');ctx.fillStyle='#c2954e';ctx.beginPath();ctx.moveTo(f.x-7,y);ctx.lineTo(f.x-13,y-5);ctx.lineTo(f.x-13,y+5);ctx.fill();oval(ctx,f.x+5,y-1,1,1,'#66533c');}
   }
-  drawSceneLabels();
+  drawSceneLabels(dt);
   drawCat();
   for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*1.5);oval(ctx,p.x,p.y,2,1.5,p.color);}ctx.globalAlpha=1;
   ctx.restore();
@@ -1146,7 +1164,7 @@ window.addEventListener('pointerup',e=>touchUp(e.pointerId));
 window.addEventListener('pointercancel',e=>touchUp(e.pointerId));
 window.addEventListener('resize',resizeView);
 if(typeof ResizeObserver!=='undefined')new ResizeObserver(resizeView).observe(canvas);
-function loop(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;accumulator+=dt;while(accumulator>=STEP){update(STEP);accumulator-=STEP;}if(state==='play'||camera.snap)updateCamera(dt);draw();requestAnimationFrame(loop);}
+function loop(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;accumulator+=dt;while(accumulator>=STEP){update(STEP);accumulator-=STEP;}if(state==='play'||camera.snap)updateCamera(dt);draw(dt);requestAnimationFrame(loop);}
 resizeView();
 loadLevel(continueLevel,true);updateSound();
 $('primary').textContent=resumableRun(continueLevel)?'从'+(checkpoint<0?'起点':'路灯')+'继续 →':continueLevel?'出发 '+(worldIndex()+1)+'-'+(levelIndex%3+1)+' →':'出发吧 →';
