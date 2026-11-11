@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#e8e0cc"><title>猫的第九次散步 · Tiny Trouble</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="mobile.css"><link rel="stylesheet" href="levels.css"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#e8e0cc"><title>猫的第九次散步 · Tiny Trouble</title><link rel="preload" as="image" href="assets/cat-gouache-v1.png"><link rel="preload" as="image" href="assets/forest-dawn-v1.jpg"><link rel="preload" as="image" href="assets/woodland-atlas-v1.png"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="mobile.css"><link rel="stylesheet" href="levels.css"></head>
 <body>
 <main id="app">
   <header><a class="brand" href="./"><span>ฅ</span><div>猫的第九次散步<small>A LITTLE WALK, A LITTLE TROUBLE</small></div></a><nav><button id="levels">选关</button><button id="sound" aria-pressed="false">声音：开</button><button id="pause">暂停 Esc</button><button id="fullscreen">全屏 ↗</button></nav></header>
@@ -10,7 +10,7 @@
       <canvas id="game" width="960" height="540" tabindex="0" aria-label="猫猫横版闯关。方向键移动，空格跳跃，R 从检查点重试，Esc 暂停。"></canvas>
       <div id="notice" role="status"></div>
       <div id="routeMeter" class="route-meter" role="progressbar" aria-label="本关路程" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="routeProgress"></i></div>
-      <section id="overlay" class="overlay"><div class="card"><p id="overline">一本有点调皮的手绘冒险</p><h1 id="heading">猫的第九次<br>散步。</h1><p id="description">穿过森林，把自己平安送回家。<br>路会捉弄你，但每一次都能重新出发。</p><div id="runSummary" class="run-summary" hidden aria-label="本关成绩"></div><p id="saveNote" class="save-note" hidden></p><button id="primary" class="primary">出发吧 →</button><button id="secondary" class="secondary">重新开始本关</button><p class="legend">A D / ← → 移动 · 空格 / W 跳跃<br>轻按小跳，长按大跳 · R 重试 · Esc 暂停</p></div></section>
+      <section id="overlay" class="overlay"><div class="card"><p id="overline">一本有点调皮的手绘冒险</p><h1 id="heading">猫的第九次<br>散步。</h1><p id="description">穿过森林，把自己平安送回家。<br>路会捉弄你，但每一次都能重新出发。</p><div id="runSummary" class="run-summary" hidden aria-label="本关成绩"></div><p id="saveNote" class="save-note" hidden></p><p id="assetStatus" class="save-note" role="status" hidden></p><button id="primary" class="primary">出发吧 →</button><button id="secondary" class="secondary">重新开始本关</button><p class="legend">A D / ← → 移动 · 空格 / W 跳跃<br>轻按小跳，长按大跳 · R 重试 · Esc 暂停</p></div></section>
       <section id="selectPanel" class="overlay level-picker" hidden aria-label="选择关卡"><div class="select-card"><div class="select-head"><h2>三章 · 九段长旅</h2><button id="closeLevels">返回</button></div><div id="worldTabs" class="world-tabs" aria-label="选择大关"></div><p>途中路灯自动保存，选关可继续。进度与成绩保存在当前浏览器。</p><div id="levelGrid" class="level-grid"></div></div></section>
     </div>
     <div class="below"><span id="hint">裂纹木板会塌，红色荆棘别碰。鱼干是可选收集。</span><span id="checkpoint">◇ 尚未到达路灯</span></div>

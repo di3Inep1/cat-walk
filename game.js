@@ -2,6 +2,29 @@
 // World units are independent of CSS pixels. Physics runs at a fixed 120 Hz.
 const canvas = document.getElementById('game'), ctx = canvas.getContext('2d');
 const $ = id => document.getElementById(id);
+const illustrations={};
+let illustrationLoading=false;
+function loadIllustrations(){
+  if(typeof Image==='undefined')return;
+  const files={cat:'assets/cat-gouache-v1.png',forest:'assets/forest-dawn-v1.jpg',environment:'assets/woodland-atlas-v1.png'};
+  let pending=Object.keys(files).length,failed=0;
+  illustrationLoading=true;$('primary').disabled=true;
+  $('assetStatus').hidden=false;$('assetStatus').textContent='正在翻开绘本…';
+  for(const [key,src] of Object.entries(files)){
+    const img=new Image();
+    const settled=()=>{
+      pending--;
+      if(pending)return;
+      illustrationLoading=false;$('primary').disabled=false;
+      $('assetStatus').hidden=failed===0;
+      $('assetStatus').textContent=failed?'部分插画未载入，仍可继续散步。':'';
+      rebuildBackground();
+    };
+    img.onload=()=>{illustrations[key]=img;settled();};
+    img.onerror=()=>{failed++;settled();};
+    img.src=src;
+  }
+}
 let W = 960;
 const H = 540, STEP = 1 / 120;
 const camera={x:0,y:0,w:640,h:360,groundY:450,snap:true,pixelWidth:960,pixelHeight:540};
@@ -547,12 +570,15 @@ function drawBoard(b,i){
   const urgency=b.crack<0?0:b.crack/crumbleDelay(b);
   const jitter=urgency>0?Math.sin(time*65)*urgency*2:0;
   ctx.save();ctx.translate(jitter,0);
+  if(worldIndex()===0&&illustrations.environment)drawPaintedPlatform(b);
+  else{
   ctx.fillStyle=b.bonus?'#c99b78':b.ice?'#a6d6e7':worldIndex()===2?'#6e789b':worldIndex()===1?'#a4b8b6':b.fragile?'#b79b75':'#b9b08a';ctx.strokeStyle=worldIndex()===2?'#3c4866':'#68634d';ctx.lineWidth=1.6;
   ctx.beginPath();ctx.moveTo(b.x,b.y+1);ctx.lineTo(b.x+b.w,b.y);ctx.lineTo(b.x+b.w-4,b.y+19);ctx.lineTo(b.x+5,b.y+22);ctx.closePath();ctx.fill();ctx.stroke();
   line(ctx,[[b.x+4,b.y+6],[b.x+b.w-5,b.y+5]],'#eee3bb',3);
   for(let x=b.x+12;x<b.x+b.w-8;x+=22)line(ctx,[[x,b.y+12],[x+13,b.y+11]],'#83785b',.8);
   if(b.fragile)line(ctx,[[b.x+b.w*.55,b.y+1],[b.x+b.w*.47,b.y+9],[b.x+b.w*.6,b.y+14],[b.x+b.w*.52,b.y+21]],'#67503f',1.5);
   else if(worldIndex()===0&&!b.bonus)for(let x=b.x+9;x<b.x+b.w-7;x+=14){line(ctx,[[x,b.y],[x-3,b.y-5],[x+1,b.y-2],[x+4,b.y-7]],'#607654',1);}
+  }
   if(b.spring){
     ctx.fillStyle='#83c7d1';ctx.beginPath();ctx.moveTo(b.x+4,b.y);ctx.quadraticCurveTo(b.x+b.w*.5,b.y-13,b.x+b.w-4,b.y);ctx.fill();
     line(ctx,[[b.x+12,b.y+15],[b.x+23,b.y+8],[b.x+34,b.y+15],[b.x+45,b.y+8]],'#527c8c',1.6);
@@ -560,13 +586,45 @@ function drawBoard(b,i){
   if(b.ice)for(let x=b.x+10;x<b.x+b.w-15;x+=25)line(ctx,[[x,b.y+5],[x+12,b.y+2]],'#e6f5fc',2);
   if(b.belt){const direction=Math.sign(b.belt);for(let x=b.x+14;x<b.x+b.w-12;x+=22)line(ctx,[[x-direction*4,b.y+6],[x+direction*4,b.y+10],[x-direction*4,b.y+14]],'#f2dca9',1.8);}
   if(level.checks.includes(i)){
-    line(ctx,[[b.x+40,b.y],[b.x+40,b.y-64]],'#6c6650',3);
     const lit=checkpoint>=0&&b.x<=boards[checkpoint].x;
+    if(illustrations.environment)drawPaintedLamp(b.x+40,b.y,lit);
+    else{
+    line(ctx,[[b.x+40,b.y],[b.x+40,b.y-64]],'#6c6650',3);
     ctx.fillStyle=lit?'#eed48c':'#b0b2a0';ctx.fillRect(b.x+32,b.y-66,16,22);
     ctx.strokeStyle='#71694d';ctx.strokeRect(b.x+32,b.y-66,16,22);
     if(lit){ctx.globalAlpha=.16;oval(ctx,b.x+40,b.y-55,29,32,'#ffe0a0');ctx.globalAlpha=1;}
+    }
   }
   ctx.restore();
+}
+function drawPaintedPlatform(b){
+  const image=illustrations.environment;
+  const frame=b.bonus?{x:1024,y:196,h:190,top:20}:b.fragile?{x:512,y:196,h:170,top:20}:{x:0,y:150,h:245,top:94};
+  const scale=.2,cap=Math.min(18,b.w/3),y=b.y-frame.top*scale;
+  // Separate end caps preserve the painted outline on both short and wide ledges.
+  ctx.drawImage(image,frame.x,frame.y,90,frame.h,b.x,y,cap,frame.h*scale);
+  ctx.drawImage(image,frame.x+90,frame.y,332,frame.h,b.x+cap,y,b.w-cap*2,frame.h*scale);
+  ctx.drawImage(image,frame.x+422,frame.y,90,frame.h,b.x+b.w-cap,y,cap,frame.h*scale);
+  if(b.fragile)line(ctx,[[b.x+b.w*.5,b.y+1],[b.x+b.w*.48,b.y+8],[b.x+b.w*.53,b.y+15]],'#62442f',1.5);
+}
+function drawPaintedLamp(x,y,lit){
+  if(lit){
+    ctx.globalAlpha=.08;oval(ctx,x+13,y-44,27,28,'#ffe1a1');
+    ctx.globalAlpha=.12;oval(ctx,x+13,y-44,16,18,'#ffe6b3');
+  }
+  ctx.globalAlpha=lit?1:.72;
+  ctx.drawImage(illustrations.environment,655,540,235,460,x-13,y-72.2,37.6,73.6);
+  ctx.globalAlpha=1;
+}
+function drawPaintedBackdrop(){
+  const width=810,offset=camera.x*.18;
+  for(let tile=Math.floor(offset/width);tile<=Math.floor((offset+camera.w)/width);tile++){
+    const x=tile*width+camera.x*.82;
+    ctx.save();
+    ctx.translate(tile%2?x+width:x,0);ctx.scale(tile%2?-1:1,1);
+    ctx.drawImage(illustrations.forest,0,0,width,H);
+    ctx.restore();
+  }
 }
 let sceneLabels=[];
 function sceneLabel(text,x,y,{tone='guide',center=false,important=false}={}){
@@ -615,6 +673,16 @@ function drawCat(){
   const walking=cat.ground&&Math.abs(cat.vx)>20,cycle=Math.sin(time*20);
   const bounce=walking?Math.abs(cycle)*.65:cat.ground?Math.sin(time*2.5)*.22:0;
   const stretch=!cat.ground&&cat.vy<0?.035:0;
+  if(illustrations.cat){
+    let frame=0;
+    if(!cat.ground)frame=cat.vy<0?4:5;
+    else if(walking)frame=[1,2,3,2][Math.floor(time*9)%4];
+    const foot=[451,449,434,448,431,447][frame],scale=54/512;
+    ctx.save();ctx.translate(cat.x+cat.w/2,cat.y+cat.h);
+    ctx.scale(cat.face*(1+landing-stretch),1-landing+stretch);
+    ctx.drawImage(illustrations.cat,(frame%3)*512,Math.floor(frame/3)*512,512,512,-295*scale,-foot*scale-bounce,54,54);
+    ctx.restore();return;
+  }
   ctx.save();ctx.translate(cat.x+11.5,cat.y+30);
   ctx.scale(cat.face*(1+landing-stretch),1-landing+stretch);
   ctx.translate(0,-bounce);ctx.lineCap='round';ctx.lineJoin='round';
@@ -695,6 +763,12 @@ function drawHarborLandmarks(){
   for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])sceneLabel(label,x,y,{center:true,important:true});
 }
 function drawRouteLandmark(kind,x,y,destination=false){
+  if(worldIndex()===0&&illustrations.environment&&['tree','gate','arch'].includes(kind)){
+    const scale=destination?.45:kind==='tree'?.36:.4;
+    if(destination){ctx.globalAlpha=.12;oval(ctx,x,y-32,24,37,'#f7d68c');ctx.globalAlpha=1;}
+    ctx.drawImage(illustrations.environment,0,512,512,512,x-256*scale,y-464*scale,512*scale,512*scale);
+    return;
+  }
   ctx.save();ctx.translate(x,y);
   const ink=worldIndex()===2?'#c3bcc1':'#748878';
   ctx.strokeStyle=ink;ctx.lineWidth=1.5;
@@ -751,8 +825,11 @@ function drawAuthoredLandmarks(){
     const b=boards[section.board],x=b.x+b.w*.65;
     if(x<camera.x-220||x>camera.x+camera.w+220)continue;
     const isEnd=section.board===exitIndex();
+    let landmarkX=x;
+    if(worldIndex()===0&&illustrations.environment)landmarkX=b.x+b.w*.5;
+    if(isEnd)landmarkX=level.finishX+12;
     if(levelIndex===1&&section.board===4)drawOrchardShelter();
-    else drawRouteLandmark(section.kind,isEnd?level.finishX+12:x,b.y,isEnd);
+    else drawRouteLandmark(section.kind,landmarkX,b.y,isEnd);
     if(levelIndex!==1||section.board!==4)sceneLabel(section.name+' →',x,b.y-125,{center:true});
   }
   const end=boards[exitIndex()];
@@ -774,7 +851,8 @@ function draw(){
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
   ctx.save();ctx.translate(-camera.x,-camera.y);
-  for(let tile=Math.floor(camera.x/960);tile<=Math.floor((camera.x+camera.w)/960);tile++)ctx.drawImage(background,tile*960,0);
+  if(worldIndex()===0&&illustrations.forest)drawPaintedBackdrop();
+  else for(let tile=Math.floor(camera.x/960);tile<=Math.floor((camera.x+camera.w)/960);tile++)ctx.drawImage(background,tile*960,0);
   if(shake)ctx.translate(Math.sin(time*90)*shake,Math.cos(time*70)*shake*.5);
   // Tiny drifting pollen is decorative; collision surfaces stay perfectly stable.
   for(let i=0;i<18;i++)oval(ctx,(i*83+time*5)%W,90+(i*41)%340+Math.sin(time+i)*6,1.3,1.3,'#f7edcb');
@@ -801,7 +879,11 @@ function draw(){
   }
   if(level.fake){line(ctx,[[565,391],[565,352]],'#7f7356',3);sceneLabel('终点？',565,365,{center:true});}
   for(const s of level.saws){const x=s.x+Math.sin(time*1.8)*s.range;line(ctx,[[s.anchor,0],[x,s.y]],'#8d8b72',1);oval(ctx,x,s.y,s.r,s.r,'#b85d4d');line(ctx,[[x-3,s.y-6],[x+1,s.y-13],[x+7,s.y-12]],'#718556',2);}
-  for(const f of fish)if(!f.got){const y=f.y+Math.sin(time*3+f.x)*3;oval(ctx,f.x,y,9,4,'#c2954e');ctx.fillStyle='#c2954e';ctx.beginPath();ctx.moveTo(f.x-7,y);ctx.lineTo(f.x-13,y-5);ctx.lineTo(f.x-13,y+5);ctx.fill();oval(ctx,f.x+5,y-1,1,1,'#66533c');}
+  for(const f of fish)if(!f.got){
+    const y=f.y+Math.sin(time*3+f.x)*3;
+    if(illustrations.environment)ctx.drawImage(illustrations.environment,1124,693,310,150,f.x-12,y-5.8,24,11.6);
+    else{oval(ctx,f.x,y,9,4,'#c2954e');ctx.fillStyle='#c2954e';ctx.beginPath();ctx.moveTo(f.x-7,y);ctx.lineTo(f.x-13,y-5);ctx.lineTo(f.x-13,y+5);ctx.fill();oval(ctx,f.x+5,y-1,1,1,'#66533c');}
+  }
   drawSceneLabels();
   drawCat();
   for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*1.5);oval(ctx,p.x,p.y,2,1.5,p.color);}ctx.globalAlpha=1;
@@ -811,6 +893,7 @@ function draw(){
   $('routeMeter').setAttribute('aria-valuenow',String(Math.round(Math.max(0,Math.min(100,(cat.x+cat.w)/W*100)))));
 }
 function next(){
+  if(state==='menu'&&illustrationLoading)return;
   unlockAudio();
   if(state==='menu')start(continueLevel,true);
   else if(state==='pause')pause();
@@ -925,3 +1008,4 @@ $('primary').textContent=resumableRun(continueLevel)?'从'+(checkpoint<0?'起点
 $('secondary').textContent='重新开始本关';$('secondary').hidden=!resumableRun(continueLevel);
 if(resumableRun(continueLevel))showSaveNote();
 requestAnimationFrame(loop);
+loadIllustrations();

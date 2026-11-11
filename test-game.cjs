@@ -1,6 +1,6 @@
 // Run the real game logic with a minimal DOM, without replacing its physics.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-function boot(stored={}){
+function boot(stored={},withImages=false){
 const pen=new Proxy({}, {get:(_,key)=>key==='measureText'?text=>({width:[...text].length*8}):()=>{}});
 const elements=new Map(),handlers=new Map(),windowHandlers=new Map();
 let elementSequence=0;
@@ -8,9 +8,11 @@ function element(id){if(!elements.has(id))elements.set(id,{hidden:id==='selectPa
 const controls=['ArrowLeft','ArrowRight','Space'].map(key=>Object.assign(element('control-'+key),{dataset:{key},setPointerCapture(){throw new Error('Capture unavailable')}}));
 const selection={cleared:false},documentHandlers=new Map();
 const context=vm.createContext({document:{getElementById:element,createElement:type=>element(type+(++elementSequence)),querySelectorAll:()=>controls,addEventListener(type,fn){documentHandlers.set(type,fn)}},window:{addEventListener(type,fn){windowHandlers.set(type,fn)},getSelection:()=>({rangeCount:1,removeAllRanges(){selection.cleared=true}})},localStorage:{getItem:key=>stored[key]??null,setItem(key,value){stored[key]=value}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},Math,console});
+const imageRequests=[];
+if(withImages)context.Image=class {set src(value){this.url=value;imageRequests.push(this)}};
 vm.runInContext(fs.readFileSync('game.js','utf8'),context);
 const run=code=>vm.runInContext(code,context);
-return {context,run,handlers,windowHandlers,documentHandlers,selection,stored};
+return {context,run,handlers,windowHandlers,documentHandlers,selection,stored,imageRequests};
 }
 const {context,run,handlers,windowHandlers,selection}=boot();
 // Find an actual continuous route using walking and held jumps, no teleporting.
@@ -234,5 +236,22 @@ const blocked=boot();
 blocked.context.localStorage.setItem=()=>{throw new Error('Storage blocked')};
 blocked.run('start(0);pause()');
 assert.equal(blocked.run("$('saveNote').textContent.includes('无法保存')"),true);
+const painted=boot({},true);
+assert.equal(painted.run("$('primary').disabled"),true);
+painted.run('next()');
+assert.equal(painted.run('state'),'menu','The menu waits for illustrations');
+assert.equal(painted.imageRequests.length,3);
+painted.imageRequests[0].onload();painted.imageRequests[1].onload();
+assert.equal(painted.run('illustrationLoading'),true);
+painted.imageRequests[2].onload();
+assert.equal(painted.run("$('primary').disabled"),false);
+painted.run('next()');
+assert.equal(painted.run('state'),'play');
+for(let i=0;i<9;i++)painted.run(`start(${i});draw();cat.vx=240;time=1;draw();cat.ground=false;cat.vy=-400;draw();cat.vy=200;draw()`);
+const missingArt=boot({},true);
+for(const img of missingArt.imageRequests)img.onerror();
+missingArt.run('next();draw()');
+assert.equal(missingArt.run('state'),'play','Failed images retain a playable fallback');
+assert.equal(missingArt.run("$('assetStatus').hidden"),false);
 console.log('PASS: 9 routes, every lamp, orchard detour, camera, reload/resume, per-level records, legacy saves and mobile lifecycle');
 

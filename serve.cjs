@@ -1,5 +1,6 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const types={'/index.html':'text/html; charset=utf-8','/style.css':'text/css; charset=utf-8','/mobile.css':'text/css; charset=utf-8','/levels.css':'text/css; charset=utf-8','/game.js':'text/javascript; charset=utf-8'};
+Object.assign(types,{'/assets/cat-gouache-v1.png':'image/png','/assets/woodland-atlas-v1.png':'image/png','/assets/forest-dawn-v1.jpg':'image/jpeg'});
 const lan=process.argv.includes('--lan'),port=Number(process.env.PORT||4173);
 const server=http.createServer((req,res)=>{
   let name=new URL(req.url,'http://localhost').pathname;
