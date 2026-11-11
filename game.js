@@ -8,6 +8,7 @@ const camera={x:0,y:0,w:640,h:360,groundY:450,snap:true,pixelWidth:960,pixelHeig
 function resizeView(){
   const rect=canvas.getBoundingClientRect?.();
   if(!rect?.width||!rect?.height)return;
+  camera.cssWidth=rect.width;
   const aspect=rect.width/rect.height;
   camera.w=rect.width<600?370:rect.width<1000?560:640;
   camera.h=Math.min(H,camera.w/aspect);
@@ -314,7 +315,7 @@ function sound(freq=440,duration=.1,type='sine'){
 }
 function unlockAudio(){try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});}catch{}}
 let noticeTimer;
-function notice(text){$('notice').textContent=text;$('notice').classList.add('visible');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').classList.remove('visible'),2600);}
+function notice(text){$('notice').textContent=text;$('notice').classList.add('visible');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').classList.remove('visible'),Math.max(3200,Math.min(6500,text.length*120)));}
 function panel(title,description,button,overline='猫的第九次散步'){
   $('overlay').hidden=false;$('heading').textContent=title;$('description').textContent=description;
   $('primary').textContent=button;$('overline').textContent=overline;
@@ -567,15 +568,46 @@ function drawBoard(b,i){
   }
   ctx.restore();
 }
+let sceneLabels=[];
+function sceneLabel(text,x,y,{tone='guide',center=false,important=false}={}){
+  sceneLabels.push({text,x,y,tone,center,important});
+}
+function drawSceneLabels(){
+  // Keep text readable in CSS pixels, independently of the near-follow camera.
+  const size=Math.max(10,14*camera.w/(camera.cssWidth||camera.w));
+  const padding=size*.65,height=size*2;
+  const themes=[['#fff4d8','#34462f','#908263'],['#f3f5e7','#294957','#7f9696'],['#28334b','#fff1d0','#a5b5cd']];
+  const obstacles=[{x:cat.x-8,y:cat.y-8,w:cat.w+16,h:cat.h+16},
+    ...boards.map(b=>({x:b.x,y:b.y-7,w:b.w,h:30})),
+    ...fish.filter(f=>!f.got).map(f=>({x:f.x-18,y:f.y-12,w:36,h:24})),
+    ...level.saws.map(s=>({x:s.x+Math.sin(time*1.8)*s.range-s.r-6,y:s.y-s.r-6,w:s.r*2+12,h:s.r*2+12}))];
+  const placed=[];
+  ctx.save();ctx.font='600 '+size+'px "Microsoft YaHei",sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+  for(const label of sceneLabels.sort((a,b)=>Number(b.important)-Number(a.important))){
+    if(label.x<camera.x||label.x>camera.x+camera.w||label.y<camera.y-32||label.y>camera.y+camera.h+32)continue;
+    const width=ctx.measureText(label.text).width+padding*2;
+    const left=label.center?label.x-width/2:label.x;
+    const x=Math.max(camera.x+8,Math.min(left,camera.x+camera.w-width-8));
+    const top=Math.max(camera.y+8,Math.min(label.y-height,camera.y+camera.h-height-8));
+    const candidates=[top,top-height-6,top+height+6,top-height*2-12];
+    const y=candidates.find(y=>y>=camera.y+8&&y+height<=camera.y+camera.h-8&&
+      ![...obstacles,...placed].some(area=>overlap({x,y,w:width,h:height},area)));
+    if(y===undefined)continue;
+    const [paper,ink,border]=label.tone==='warning'?['#fff0d5','#713b29','#b4805d']:themes[worldIndex()];
+    ctx.fillStyle=paper;ctx.strokeStyle=border;ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(x,y,width,height,Math.min(5,size*.4));ctx.fill();ctx.stroke();
+    ctx.fillStyle=ink;ctx.fillText(label.text,x+padding,y+height/2);
+    placed.push({x:x-4,y:y-4,w:width+8,h:height+8});
+  }
+  ctx.restore();
+}
 function drawLessonSigns(){
   if(levelIndex!==0)return;
   // Small world-space prompts stay near the relevant action; no tutorial modal.
-  ctx.fillStyle='#5b6650';ctx.font='13px "Microsoft YaHei",sans-serif';ctx.textAlign='center';
-  ctx.fillText('跳一下 →',157,400);
-  ctx.fillText('歇歇脚',453,318);
-  ctx.fillStyle='#936a4c';ctx.fillText('有裂纹…',641,340);
-  ctx.fillStyle='#65745b';ctx.font='11px "Microsoft YaHei",sans-serif';
-  ctx.fillText('小路也能回家 →',635,510);ctx.textAlign='start';
+  sceneLabel('跳一下 →',157,400,{center:true,important:true});
+  sceneLabel('歇歇脚',453,318,{center:true,important:true});
+  sceneLabel('有裂纹…',641,340,{tone:'warning',center:true,important:true});
+  sceneLabel('小路也能回家 →',635,510,{center:true,important:true});
 }
 function drawCat(){
   if(deathDelay>0)return;
@@ -660,9 +692,7 @@ function drawHarborLandmarks(){
   const shimmer=.08+.03*Math.sin(time*1.5);
   ctx.globalAlpha=shimmer;ctx.fillStyle='#fff0b1';ctx.beginPath();ctx.moveTo(towerX,78);
   ctx.lineTo(towerX-330,10);ctx.lineTo(towerX-330,136);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
-  ctx.fillStyle='#557681';ctx.font='12px "Microsoft YaHei",sans-serif';ctx.textAlign='center';
-  for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])ctx.fillText(label,x,y);
-  ctx.textAlign='start';
+  for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])sceneLabel(label,x,y,{center:true,important:true});
 }
 function drawRouteLandmark(kind,x,y,destination=false){
   ctx.save();ctx.translate(x,y);
@@ -723,8 +753,7 @@ function drawAuthoredLandmarks(){
     const isEnd=section.board===exitIndex();
     if(levelIndex===1&&section.board===4)drawOrchardShelter();
     else drawRouteLandmark(section.kind,isEnd?level.finishX+12:x,b.y,isEnd);
-    ctx.fillStyle=worldIndex()===2?'#eee0bb':'#546e63';ctx.font='12px "Microsoft YaHei",sans-serif';
-    ctx.fillText(section.name+' →',b.x+8,b.y-195);
+    if(levelIndex!==1||section.board!==4)sceneLabel(section.name+' →',x,b.y-125,{center:true});
   }
   const end=boards[exitIndex()];
   if(!level.sections.some(s=>s.board===exitIndex()))drawRouteLandmark(level.sections[level.sections.length-1].kind,level.finishX+12,end.y,true);
@@ -736,12 +765,12 @@ function drawOrchardShelter(){
     line(ctx,[[b.x+b.w-10,b.y+20],[b.x+b.w-10,415]],'#86967a',5);
     line(ctx,[[b.x+10,b.y+38],[b.x+b.w-10,b.y+64]],'#a8af8d',2);
   }
-  ctx.font='12px "Microsoft YaHei",sans-serif';ctx.fillStyle='#835d47';
-  ctx.fillText('↑ 棚顶鱼干 · 可选',886,204);
-  ctx.fillStyle='#4e6851';ctx.fillText('安全木道 →',900,410);
-  ctx.fillText('↓ 回到木道',1205,270);
+  sceneLabel('↑ 棚顶鱼干 · 可选',886,204,{important:true});
+  sceneLabel('安全木道 →',900,425,{important:true});
+  sceneLabel('↓ 回到木道',1205,270,{important:true});
 }
 function draw(){
+  sceneLabels=[];
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
   ctx.save();ctx.translate(-camera.x,-camera.y);
@@ -757,7 +786,7 @@ function draw(){
       const x=zone.from+10+((i*71+direction*time*32)%380+380)%380,y=215+(i%5)*50;
       line(ctx,[[x,y],[x+direction*20,y],[x+direction*15,y-3]],'#e5f3f3',1.4);
     }ctx.globalAlpha=1;
-    ctx.fillStyle='#47718a';ctx.font='12px sans-serif';ctx.fillText(zone.speed>0?'顺风区 →':'← 逆风区',zone.from+20,300);
+    sceneLabel(zone.speed>0?'顺风区 →':'← 逆风区',zone.from+20,300,{important:true});
   }
   boards.forEach(drawBoard);
   drawLessonSigns();
@@ -770,9 +799,10 @@ function draw(){
   ctx.fillStyle='#674c3f';ctx.beginPath();ctx.moveTo(end.x+28,end.y-51);ctx.lineTo(end.x+52,end.y-76);ctx.lineTo(end.x+76,end.y-51);ctx.fill();
   ctx.fillStyle='#edcc84';ctx.fillRect(end.x+44,end.y-36,17,36);oval(ctx,end.x+57,end.y-17,1.4,1.4,'#69503e');
   }
-  if(level.fake){line(ctx,[[565,391],[565,352]],'#7f7356',3);ctx.fillStyle='#efe1bb';ctx.fillRect(544,346,48,19);ctx.fillStyle='#7f7356';ctx.font='11px serif';ctx.fillText('终点？',548,360);}
+  if(level.fake){line(ctx,[[565,391],[565,352]],'#7f7356',3);sceneLabel('终点？',565,365,{center:true});}
   for(const s of level.saws){const x=s.x+Math.sin(time*1.8)*s.range;line(ctx,[[s.anchor,0],[x,s.y]],'#8d8b72',1);oval(ctx,x,s.y,s.r,s.r,'#b85d4d');line(ctx,[[x-3,s.y-6],[x+1,s.y-13],[x+7,s.y-12]],'#718556',2);}
   for(const f of fish)if(!f.got){const y=f.y+Math.sin(time*3+f.x)*3;oval(ctx,f.x,y,9,4,'#c2954e');ctx.fillStyle='#c2954e';ctx.beginPath();ctx.moveTo(f.x-7,y);ctx.lineTo(f.x-13,y-5);ctx.lineTo(f.x-13,y+5);ctx.fill();oval(ctx,f.x+5,y-1,1,1,'#66533c');}
+  drawSceneLabels();
   drawCat();
   for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*1.5);oval(ctx,p.x,p.y,2,1.5,p.color);}ctx.globalAlpha=1;
   ctx.restore();

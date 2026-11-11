@@ -65,7 +65,20 @@ h1 { font-weight: 700; line-height: 1.3; letter-spacing: .03em; color: var(--ink
 .primary:hover { background: var(--green); filter: brightness(1.08); }
 .secondary { color: var(--muted); text-decoration: none; font-size: 12px; min-height: 36px; box-shadow: none; }
 .secondary:hover { background: #777b6c0d; box-shadow: none; }
-#notice { border-radius: 10px; line-height: 1.6; }
+#notice {
+  border-radius: 10px;
+  border: 1px solid #908263;
+  background: #fff4d8;
+  color: #34462f;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.7;
+  box-shadow: 0 3px 12px #28332126;
+  max-width: calc(100% - 24px);
+}
+.below { color: #515d49; }
+[data-world="harbor"] #notice { background: #f3f5e7; color: #294957; border-color: #7f9696; }
+[data-world="rooftop"] #notice { background: #28334b; color: #fff1d0; border-color: #a5b5cd; }
 footer { font-size: 11px; padding: 22px 8px; letter-spacing: .04em; }
 @media (max-width: 760px) {
   header { flex-wrap: wrap; gap: 12px; padding-block: 16px; }

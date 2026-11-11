@@ -1,7 +1,7 @@
 // Run the real game logic with a minimal DOM, without replacing its physics.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 function boot(stored={}){
-const pen=new Proxy({}, {get:()=>()=>{}});
+const pen=new Proxy({}, {get:(_,key)=>key==='measureText'?text=>({width:[...text].length*8}):()=>{}});
 const elements=new Map(),handlers=new Map(),windowHandlers=new Map();
 let elementSequence=0;
 function element(id){if(!elements.has(id))elements.set(id,{hidden:id==='selectPanel',textContent:'',style:{},children:[],appendChild(child){this.children.push(child)},replaceChildren(){this.children=[]},classList:{add(){},remove(){}},setAttribute(){},focus(){},getContext:()=>pen,addEventListener(type,fn){handlers.set(id+':'+type,fn)}});return elements.get(id);}

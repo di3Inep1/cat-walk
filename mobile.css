@@ -32,7 +32,7 @@ canvas{touch-action:none}
   .card>p:first-child{font-size:10px;margin:5px 0}
   .card .primary{margin:10px auto 3px;min-height:44px;padding:8px 20px}
   .card .secondary{min-height:38px}
-  #notice{top:8px;font-size:11px;padding:5px 10px}
+  #notice{top:8px;font-size:12px;padding:7px 11px}
 }
 @media(max-width:900px) and (orientation:landscape){
   main{padding:0 max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left))!important}
