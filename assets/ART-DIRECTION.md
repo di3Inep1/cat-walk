@@ -9,14 +9,24 @@
 - harbor-afternoon-v1.jpg，1536 × 1024，第二章三关使用的午后海港视差背景。
 - harbor-atlas-v1.png，1536 × 1024，木栈桥、蓝色弹性垫、货箱、帆船、吊架与灯塔。走道和弹性垫顶面按物理坐标放置。
 - harbor-warehouse-v1.png，1536 × 1024，独立的开敞式货仓，中央开口保留透明，穿行路线在前景绘制。
-- rooftop-moonlight-v1.jpg，1536 × 1024，第三章三关共用的单幅月夜全景，视差移动覆盖整关，保持月亮唯一且比例正确。
-- rooftop-atlas-v1.png，1536 × 1024，普通屋瓦、薄霜、裂纹旧瓦、烟囱和天窗。原图中的工业滚轮不再使用。
-- rooftop-landmarks-v1.png，1536 × 1024，钟楼、暖窗阁楼门与通透砖拱门，入口下缘和终点平台对齐。
-- rooftop-sliding-eave-v1.png，1536 × 1024，独立透明滑动瓦檐。蓝紫屋瓦、旧木檐与两端嵌入的小齿轮沿用第三章的绘本色调。中央瓦面按带速和方向平铺滚动，两端固定，仅叠加细小方向标记与齿轮转动。可踩顶面与原碰撞面一致。
+- rooftop-moonlight-v1.jpg，1536 × 1024，历史月夜屋顶全景，现由磨坊室外远景替代，不再加载。
+- rooftop-atlas-v1.png，1536 × 1024，历史屋瓦、薄霜、裂纹、烟囱与天窗图集，不再加载。
+- rooftop-landmarks-v1.png，1536 × 1024，历史钟楼、阁楼门与砖拱门，不再加载。
+- rooftop-sliding-eave-v1.png，1536 × 1024，历史滑动瓦檐方案，不再加载；实际传送带现位于磨坊室内。
 
 三章背景、平台与主要场景地标均采用绘本美术。猫猫、路灯、鱼干与提示牌应用于全部章节，机关标识在插画上叠加绘制。
 
 ## 实际生成提示词
+
+### 第三章室外衔接（内置 imagegen）
+
+mill-approach-v1.jpg：1536 × 1024，不透明磨坊霜夜远景，原始 PNG 转为 JPEG。3-1 与 3-3 共用；3-3 中段裁切叠加磨坊室内背景，空间边界固定在世界坐标，图片保持原比例。
+
+Use case: illustration-story. Production opaque distant background for a premium hand-painted 2D cat adventure, 1536x1024 landscape 3:2. Moonlit exterior of an old village grain mill in late autumn frost. Quiet indigo sky in upper half, distant slate mill roofs, one modest old mill gable and a still waterwheel silhouette at far left, pale blue-gray stone walls and timber outlines, sparse warm amber windows, distant hills and frosty shrubs low below. Gouache watercolor and colored pencil tactile paper grain, desaturated dusty teal, lavender gray, silver frost, restrained warm honey light. Atmospheric low contrast background only, central 75 percent open quiet sky and softly distant wall forms, no walkable ledges or foreground platforms, no close floor or railings, no characters, no lettering, no UI, no factory. No visible moon disc; the moonlight is off-frame. Beautiful cozy old mill setting, not a city skyline, no duplicated moons. Entire image opaque.
+
+mill-exterior-v1.png：1536 × 1024，透明 3 × 2 图集，薄霜石檐、普通石檐、裂纹木梁、石支柱、通透门拱、暖窗小屋。平台顶面按源 y=228 裁切对齐碰撞面，门窗底边按 y=490 对齐台面；小屋镜像放置，使门与实际终点对应并保留完整暖窗。
+
+Use case: illustration-story. TRUE TRANSPARENT production sprite atlas for premium 2D storybook old grain mill cat platformer, 1536x1024, exactly THREE columns TWO rows of equal 512x512 cells. Gouache and colored pencil matching warm weathered oak, slate blue-gray stone, silver frost, amber light. TOP LEFT: long horizontal stone cornice ledge, completely FLAT walkable upper edge at cell y=210, fine pale blue frost on top, clearly icy cyan shine restrained, stone underside bottom near y=360, fills nearly full width, no posts. TOP MIDDLE: matching horizontal plain blue-gray stone cornice, same flat walkable top y=210, no frost, subtle tiny moss at edges, bottom near y=360. TOP RIGHT: long old wooden repair bridge beam with a single clear dark vertical crack at its center, flat walkable top y=210, splintered aged oak side and little rust nails, bottom near y=360, fills nearly full width, no rope or legs. BOTTOM LEFT: one complete narrow stone pilaster support, weathered square-cut blue-gray mill stones, centered x=135..377, cell-relative y=10..500, no cap projecting sideways, entire column visible. BOTTOM MIDDLE: a whole tall old mill entry arch, pale gray stone around warm oak side posts, generous genuinely TRANSPARENT OPENING at center to see through, short slate gable cap, no floor, entire gate in cell, base cell-relative y=490. BOTTOM RIGHT: whole inviting small cottage front with dusty teal arched wooden door and adjacent softly glowing amber window under a modest slate eave, beautiful warm paper glow contained around window, base cell-relative y=490, centered fully visible. Each prop wholly inside own cell, true alpha everywhere else and inside gateway. Orthographic side/front elevation, no perspective ground, no characters, no text, no borders, no watermark.
 
 ### 磨坊旧铜铃（内置 imagegen）
 

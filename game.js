@@ -10,12 +10,14 @@ const illustrationFiles={
   harborEnvironment:'assets/harbor-atlas-v1.png',warehouse:'assets/harbor-warehouse-v1.png',
   rooftop:'assets/rooftop-moonlight-v1.jpg',rooftopEnvironment:'assets/rooftop-atlas-v1.png',rooftopLandmarks:'assets/rooftop-landmarks-v1.png',
   slidingEave:'assets/rooftop-sliding-eave-v1.png',
-  mill:'assets/mill-night-v1.jpg',millEnvironment:'assets/mill-atlas-v1.png',millBell:'assets/mill-bell-v1.png'
+  mill:'assets/mill-night-v1.jpg',millEnvironment:'assets/mill-atlas-v1.png',millBell:'assets/mill-bell-v1.png',
+  millApproach:'assets/mill-approach-v1.jpg',millExterior:'assets/mill-exterior-v1.png'
 };
 let illustrationLoading=false;
 function requiredIllustrations(){
-  const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['rooftop','rooftopEnvironment','rooftopLandmarks','slidingEave']];
-  return ['cat','catFeedback','environment','signs',...(levelIndex===7?['mill','millEnvironment','millBell']:chapters[worldIndex()])];
+  const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['millApproach','millExterior']];
+  const routeArt=levelIndex===7?['mill','millEnvironment','millBell']:levelIndex===8?['millApproach','millExterior','mill','millEnvironment']:chapters[worldIndex()];
+  return ['cat','catFeedback','environment','signs',...routeArt];
 }
 function updateIllustrationStatus(){
   const required=requiredIllustrations(),wasLoading=illustrationLoading;
@@ -134,7 +136,7 @@ for(const chapter of NEW_CHAPTERS)for(const [name,layout,traits,hint] of chapter
 const MERGE_PLAN=[
   ['林间初行',[0,1]],['石阶与果园',[3,4,2]],['晚灯归途',[5,6,7]],
   ['海风栈道',[8,9,10]],['停船与高桥',[11,12,13]],['渡口晚风',[14,15]],
-  ['月光与薄霜',[16,17,18]],['运粮走廊',[19,20]],['屋脊归家',[21,22,23]]
+  ['霜夜磨坊',[16,17,18]],['运粮走廊',[19,20]],['阁楼归途',[21,22,23]]
 ];
 // Compose authored encounters into one continuous world. Connector steps always
 // have small gaps and descend gradually, keeping the original jump distances.
@@ -216,13 +218,13 @@ const AUTHORED_ROUTES=[
     sections:[[0,'渡口候船','先走到吊架下，蓝色软垫能送你上高桥。','boat'],[4,'顺风吊架','在软垫上长按跳跃，借顺风登高。','crane'],[7,'中途泊位','宽甲板能让你停稳，调整好再出发。','boat'],[10,'最后的航标','这一跳迎着微风，按住跳跃抵达航标。','beacon']]},
   {index:6,boards:[[0,450,210],[250,420,160],[450,380,220],[710,355,210],[960,400,150],[1150,355,180],[1370,315,220],[1630,365,220],[1890,330,150],[2080,385,210],[2330,340,150],[2520,295,170],[2730,340,220]],
     ice:[3,7],checks:[2,6,9],
-    sections:[[0,'月下天窗','先走上屋脊，浅蓝屋瓦才会打滑。','roof'],[2,'第一片薄霜','在冰面试着轻按反方向，停稳再跳。','chimney'],[6,'第二段屋脊','两段冰面之间有普通屋瓦，可以休息。','roof'],[9,'月台暖窗','薄霜已经走过了，沿普通屋瓦抵达暖窗。','window']]},
+    sections:[[0,'磨坊外墙','沿石檐向前，浅蓝色的霜面才会打滑。','wall'],[2,'第一片薄霜','在霜面轻按反方向，停稳再跳。','frost'],[6,'背风石台','两段薄霜之间有干燥石台，可以歇脚。','wall'],[9,'门厅暖灯','走过最后几级石檐，磨坊的门就在前面。','mill-entry']]},
   {index:7,boards:[[0,450,220],[260,425,160],[460,395,240],[740,370,220],[1000,410,180],[1220,375,240],[1500,345,220],[1760,395,190],[1990,360,160],[2190,325,240],[2470,370,230],[2740,335,180],[2960,295,170],[3170,340,240],[3450,300,220]],
     belts:{3:40,6:-35,10:45},checks:[2,5,9,13],
     sections:[[0,'磨坊门厅','沿木廊向前，先到路灯旁看看运粮带。','mill'],[2,'第一台运粮机','浅色帆布会缓缓送你向右，跳上木台就能停稳。','hopper'],[5,'回程检修廊','这一台向左运粮，向右走慢一些，起跳就能离开。','pulley'],[9,'阁楼装粮间','先在木台歇脚，再借最后一台运粮带去阁楼门口。','mill-exit']]},
   {index:8,boards:[[0,450,210],[250,415,160],[450,375,210],[700,350,210],[950,395,160],[1150,350,220],[1410,310,160],[1610,365,180],[1830,330,220],[2090,375,160],[2290,340,160],[2490,295,220],[2750,330,150],[2940,280,240]],
     ice:[3],belts:{6:-35},fragile:[10],checks:[2,5,8,11],
-    sections:[[0,'最后的夜路','先经过薄霜，暖灯还在屋脊的另一边。','roof'],[5,'烟囱之间','在普通屋瓦站稳，再越过逆向屋瓦。','chimney'],[8,'旧瓦桥头','只剩一块有裂纹的旧瓦，及时跳过去。','arch'],[11,'回家的灯','挑战都走过了，沿最后几级屋瓦回家。','window']]}
+    sections:[[0,'窗外薄霜','沿露天外廊走过薄霜，前面可以穿进阁楼。','frost'],[5,'阁楼检修廊','木台可以停稳。经过向左的帆布带，再走向出口。','mill-entry'],[8,'旧木桥头','出了阁楼有一块裂纹旧木板，及时跳过去。','repair'],[11,'回家的灯','磨坊的声音远了，沿木廊走向暖窗。','home']]}
 ];
 for(const plan of AUTHORED_ROUTES){
   const original=LEVELS[plan.index];
@@ -381,7 +383,7 @@ function syncAudio(){
   if(!soundscape)return;
   const visible=!document.hidden&&$('selectPanel').hidden,ready=!illustrationLoading;
   soundscape.setMuted(muted);
-  soundscape.setScene(levelIndex===7?'mill':['forest','harbor','roof'][worldIndex()],state==='play'&&visible&&ready,
+  soundscape.setScene(chapterAtmosphere(),state==='play'&&visible&&ready,
     ['play','clear','complete'].includes(state)&&visible&&ready);
 }
 function unlockAudio(){
@@ -389,7 +391,10 @@ function unlockAudio(){
   try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});}catch{}
 }
 function cue(name){if(soundscape)soundscape.cue(name);else sound(name==='fall'?130:650,.12);}
-function surfaceMaterial(b){return b?.ice?'ice':b?.spring?'soft':b?.belt?'canvas':levelIndex===7||worldIndex()===1||b?.fragile?'wood':worldIndex()===2?'tile':'grass';}
+function isMillRoom(x){return levelIndex===7||(levelIndex===8&&x>=1120&&x<2260);}
+function usesMillDeck(b){return levelIndex===7||(levelIndex===8&&b?.x>=1120&&b.x<2940);}
+function chapterAtmosphere(){return isMillRoom(cat.x)?'mill':['forest','harbor','roof'][worldIndex()];}
+function surfaceMaterial(b){return b?.ice?'ice':b?.spring?'soft':b?.belt?'canvas':usesMillDeck(b)||worldIndex()===1||b?.fragile?'wood':worldIndex()===2?'tile':'grass';}
 function updateMillMoment(dt){
   if(levelIndex!==7)return;
   if(millMoment.rung){millMoment.age+=dt;return;}
@@ -415,7 +420,7 @@ function hud(){
   $('fish').textContent=fish.filter(f=>f.got).length+' / '+fish.length;
   $('deaths').textContent=deaths;
   $('checkpoint').textContent=checkpoint<0?'◇ 尚未到达路灯':'◆ 路灯 '+level.checks.filter(i=>boards[i].x<=boards[checkpoint].x).length+' / '+level.checks.length;
-  if(!lessonSeen.size)$('hint').textContent=level.hint;
+  if(!lessonSeen.size)$('hint').textContent=level.sections.findLast(section=>cat.x>=section.x)?.hint||level.hint;
 }
 function spawn(){
   const p=boards[checkpoint<0?0:checkpoint];
@@ -468,7 +473,7 @@ function finish(){
   continueLevel=Math.min(LEVELS.length-1,levelIndex+1);
   save();clearInput();syncAudio();cue('finish');
   panel(state==='complete'?'到家了，猫猫。':levelIndex%3===2?world().name+'，走过了。':'这一页，走过了。',
-    '每一步，都离家更近了。',
+    state==='complete'?'磨坊的铃声远了，窗里的灯还亮着。':'每一步，都离家更近了。',
     state==='complete'?'再走一遍 →':'下一关：'+LEVELS[levelIndex+1].name+' →',state==='complete'?'散步结束 / 三章回家路':(worldIndex()+1)+'-'+(levelIndex%3+1)+' COMPLETE');
   $('runSummary').replaceChildren();
   for(const [label,value,best] of [
@@ -523,7 +528,7 @@ function update(dt){
       cat.y=b.y-cat.h;cat.vy=0;cat.ground=true;cat.support=i;
       if(b.spring)teach('spring','在蓝色软垫上按住跳跃，可以跳得更高。');
       if(b.ice)teach('ice','薄霜会滑。轻按反方向，可以更快停下。');
-      if(b.belt)teach('belt',levelIndex===7?'浅色帆布运粮带会带你走，跳到木台就能停稳。':'箭头屋瓦会推着你走，起跳就能离开它。');
+      if(b.belt)teach('belt',usesMillDeck(b)?'浅色帆布运粮带会带你走，跳到木台就能停稳。':'箭头屋瓦会推着你走，起跳就能离开它。');
       if(fallSpeed>150){landing=Math.min(.075,fallSpeed/800*.075);burst(cat.x+12,b.y,'#e4d5b6',8);if(soundscape)soundscape.surface(surfaceMaterial(b),Math.min(1.5,fallSpeed/450));else sound(180,.045,'triangle');}
       if(b.source===0&&b.local===1)teach('jump','跳得不错。前面的路灯可以歇脚。');
       if(b.fragile&&b.crack<0){
@@ -540,7 +545,8 @@ function update(dt){
   }
   updateCatMotion(dt,axis,previousVx,previousFace);
   updateMillMoment(dt);
-  const machine=levelIndex===7?boards.filter(b=>b.belt).reduce((nearest,b)=>{
+  if(soundscape&&soundscape.scene!==chapterAtmosphere())syncAudio();
+  const machine=isMillRoom(cat.x)?boards.filter(b=>b.belt).reduce((nearest,b)=>{
     const offset=b.x+b.w/2-cat.x,distance=Math.abs(offset);
     return distance<nearest.distance?{distance,pan:offset/400}:nearest;
   },{distance:Infinity,pan:0}):{distance:Infinity,pan:0};
@@ -646,7 +652,9 @@ function drawBoard(b,i){
   ctx.save();ctx.translate(jitter,0);
   if(worldIndex()===0&&illustrations.environment)drawPaintedPlatform(b);
   else if(worldIndex()===1&&illustrations.harborEnvironment)drawPaintedDock(b);
-  else if(levelIndex===7&&illustrations.millEnvironment)drawMillBoard(b);
+  else if(worldIndex()===2&&b.fragile&&illustrations.millExterior)drawMillExteriorBoard(b);
+  else if(usesMillDeck(b)&&illustrations.millEnvironment)drawMillBoard(b);
+  else if(worldIndex()===2&&!usesMillDeck(b)&&illustrations.millExterior)drawMillExteriorBoard(b);
   else if(worldIndex()===2&&illustrations.rooftopEnvironment)drawPaintedRoof(b);
   else{
   ctx.fillStyle=b.bonus?'#c99b78':b.ice?'#a6d6e7':worldIndex()===2?'#6e789b':worldIndex()===1?'#a4b8b6':b.fragile?'#b79b75':'#b9b08a';ctx.strokeStyle=worldIndex()===2?'#3c4866':'#68634d';ctx.lineWidth=1.6;
@@ -729,21 +737,25 @@ function drawMillBoard(b){
     }
   }
 }
+function drawMillStructure(b){
+  const image=illustrations.millEnvironment;
+  if(!image)return;
+  for(const x of [b.x+24,b.x+b.w-24])ctx.drawImage(image,1160,0,240,512,x-17,b.y+18,34,H-b.y-18);
+  if(b.belt){
+    const x=b.x+b.w*.5,y=b.y+77;
+    ctx.drawImage(image,1160,0,240,512,x-12,b.y+35,24,H-b.y-35);
+    ctx.save();ctx.translate(x,y);ctx.rotate(time*b.belt*.018);
+    ctx.drawImage(image,512,512,512,512,-27,-27,54,54);ctx.restore();
+    line(ctx,[[b.x+9,b.y+13],[x-20,y],[x+20,y],[b.x+b.w-9,b.y+13]],'#9e8156',2);
+  }
+}
 function drawMillLandmarks(){
   if(!illustrations.millEnvironment)return;
   const image=illustrations.millEnvironment;
   ctx.save();ctx.globalAlpha=.66;
   for(const b of boards){
     if(b.x+b.w<camera.x-120||b.x>camera.x+camera.w+120)continue;
-    // Trestles visibly carry every catwalk and conveyor down to the mill foundation.
-    for(const x of [b.x+24,b.x+b.w-24])ctx.drawImage(image,1160,0,240,512,x-17,b.y+18,34,H-b.y-18);
-    if(b.belt){
-      const x=b.x+b.w*.5,y=b.y+77;
-      ctx.drawImage(image,1160,0,240,512,x-12,b.y+35,24,H-b.y-35);
-      ctx.save();ctx.translate(x,y);ctx.rotate(time*b.belt*.018);
-      ctx.drawImage(image,512,512,512,512,-27,-27,54,54);ctx.restore();
-      line(ctx,[[b.x+9,b.y+13],[x-20,y],[x+20,y],[b.x+b.w-9,b.y+13]],'#9e8156',2);
-    }
+    drawMillStructure(b);
   }
   for(const section of level.sections){
     const b=boards[section.board],x=b.x+b.w*.65;
@@ -777,6 +789,50 @@ function drawMillBell(){
     for(const side of [-1,1])line(ctx,[[x+side*24,y],[x+side*30,y+8],[x+side*24,y+16]],'#f4d895',1);
     ctx.restore();
   }
+}
+function drawMillExteriorBoard(b){
+  const image=illustrations.millExterior,sourceX=b.fragile?1024:b.ice?0:512;
+  const y=b.y-1,cap=20,height=24;
+  ctx.drawImage(image,sourceX,228,100,120,b.x,y,cap,height);
+  const end=b.x+b.w-cap;
+  if(b.fragile)ctx.drawImage(image,sourceX+100,228,312,120,b.x+cap,y,b.w-cap*2,height);
+  else for(let x=b.x+cap;x<end;x+=62.4){
+    const width=Math.min(62.4,end-x);
+    ctx.drawImage(image,sourceX+100,228,width/.2,120,x,y,width,height);
+  }
+  ctx.drawImage(image,sourceX+412,228,100,120,end,y,cap,height);
+}
+function drawMillPortal(x,y,home=false){
+  const image=illustrations.millExterior;if(!image)return;
+  if(home)x=Math.min(x,W-90);
+  if(home){ctx.save();ctx.globalAlpha=.08;oval(ctx,x,y-53,58,67,'#ffdb8e');ctx.restore();}
+  const scale=home?.34:.28;
+  ctx.save();ctx.translate(x,y);if(home)ctx.scale(-1,1);
+  ctx.drawImage(image,home?1024:512,512,512,512,-256*scale,-490*scale,512*scale,512*scale);ctx.restore();
+}
+function drawMillJourneyLandmarks(){
+  const image=illustrations.millExterior;
+  if(!image){drawAuthoredLandmarks();return;}
+  ctx.save();ctx.globalAlpha=.68;
+  for(const b of boards){
+    if(b.x+b.w<camera.x-100||b.x>camera.x+camera.w+100)continue;
+    if(usesMillDeck(b))drawMillStructure(b);
+    else for(const x of [b.x+5,b.x+b.w-41])ctx.drawImage(image,180,520,150,490,x,b.y+12,36,H-b.y-12);
+  }
+  ctx.restore();
+  if(levelIndex===8&&illustrations.millEnvironment){
+    // Cutaway edges identify the room: the conveyor stays entirely inside it.
+    const timber=illustrations.millEnvironment;
+    for(const x of [1120,2260])ctx.drawImage(timber,1184,35,32,430,x-6,-8,12,H+16);
+    drawMillPortal(1190,350);drawMillPortal(2220,375);
+  }
+  for(const section of level.sections){
+    const b=boards[section.board],x=b.x+b.w*.65;
+    if(x<camera.x-180||x>camera.x+camera.w+180)continue;
+    sceneLabel(section.name+' →',x,b.y-115,{center:true});
+  }
+  const end=boards[exitIndex()];
+  drawMillPortal(level.finishX+12,end.y,levelIndex===8);
 }
 function drawPaintedRoof(b){
   if(b.belt&&illustrations.slidingEave){drawSlidingEave(b);return;}
@@ -820,13 +876,20 @@ function drawSlidingEave(b){
   }
 }
 function drawPaintedBackdrop(){
-  const image=levelIndex===7?illustrations.mill:[illustrations.forest,illustrations.harbor,illustrations.rooftop][worldIndex()];
+  const image=levelIndex===7?illustrations.mill:worldIndex()===2?illustrations.millApproach:[illustrations.forest,illustrations.harbor][worldIndex()];
   if(worldIndex()===2&&levelIndex!==7){
-    // Cover the entire parallax travel with one panorama, retaining a single round moon.
-    const width=Math.max(810,camera.w+(W-camera.w)*.18);
-    ctx.drawImage(image,camera.x*.82,0,width,width*2/3);
+    // One exterior panorama retains the painted proportions across the journey.
+    const width=Math.max(990,camera.w+(W-camera.w)*.18);
+    ctx.drawImage(image,camera.x*.82,-110,width,width*2/3);
+    if(levelIndex===8&&camera.x+camera.w>1120&&camera.x<2260&&illustrations.mill){
+      ctx.save();ctx.beginPath();ctx.rect(1120,0,1140,H);ctx.clip();
+      drawRepeatingBackdrop(illustrations.mill);ctx.restore();
+    }
     return;
   }
+  drawRepeatingBackdrop(image);
+}
+function drawRepeatingBackdrop(image){
   const width=810,offset=camera.x*.18;
   for(let tile=Math.floor(offset/width);tile<=Math.floor((offset+camera.w)/width);tile++){
     const x=tile*width+camera.x*.82;
@@ -1173,13 +1236,14 @@ function draw(dt=1/60){
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
   ctx.save();ctx.translate(-camera.x,-camera.y);
-  if(levelIndex===7?illustrations.mill:[illustrations.forest,illustrations.harbor,illustrations.rooftop][worldIndex()])drawPaintedBackdrop();
+  if(levelIndex===7?illustrations.mill:worldIndex()===2?illustrations.millApproach:[illustrations.forest,illustrations.harbor][worldIndex()])drawPaintedBackdrop();
   else for(let tile=Math.floor(camera.x/960);tile<=Math.floor((camera.x+camera.w)/960);tile++)ctx.drawImage(background,tile*960,0);
   if(shake)ctx.translate(Math.sin(time*90)*shake,Math.cos(time*70)*shake*.5);
   // Tiny drifting pollen is decorative; collision surfaces stay perfectly stable.
   for(let i=0;i<18;i++)oval(ctx,(i*83+time*5)%W,90+(i*41)%340+Math.sin(time+i)*6,1.3,1.3,'#f7edcb');
   if(level.showcase)drawHarborLandmarks();
   if(levelIndex===7)drawMillLandmarks();
+  else if(worldIndex()===2)drawMillJourneyLandmarks();
   else if(level.refined)drawAuthoredLandmarks();
   for(const zone of level.winds){
     ctx.globalAlpha=.5;const direction=Math.sign(zone.speed);
