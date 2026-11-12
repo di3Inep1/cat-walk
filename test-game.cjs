@@ -1,7 +1,7 @@
 // Run the real game logic with a minimal DOM, without replacing its physics.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 function boot(stored={},withImages=false,withAudio=true){
-const pen=new Proxy({}, {get:(target,key)=>target[key]??(key==='measureText'?text=>({width:[...text].length*8}):()=>{})});
+const pen=new Proxy({}, {get:(target,key)=>target[key]??(key==='measureText'?text=>({width:[...text].length*8}):key==='createLinearGradient'||key==='createRadialGradient'?()=>({addColorStop(){}}):()=>{})});
 const elements=new Map(),handlers=new Map(),windowHandlers=new Map();
 let elementSequence=0;
 function element(id){if(!elements.has(id))elements.set(id,{hidden:id==='selectPanel',textContent:'',style:{},children:[],appendChild(child){this.children.push(child)},replaceChildren(){this.children=[]},classList:{add(){},remove(){}},setAttribute(){},focus(){},getContext:()=>pen,addEventListener(type,fn){handlers.set(id+':'+type,fn)}});return elements.get(id);}
@@ -274,11 +274,11 @@ for(let i=0;i<9;i++){
   for(const img of painted.imageRequests.slice(previous))img.onload();
   painted.run('draw();cat.vx=240;time=1;draw();cat.ground=false;cat.vy=-400;draw();cat.vy=200;draw()');
 }
-assert.equal(painted.imageRequests.length,15,'Each illustration is loaded once across all chapters');
+assert.equal(painted.imageRequests.length,21,'Each illustration is loaded once across all chapters');
 painted.run('const nightImages=[];ctx.drawImage=(...args)=>nightImages.push(args);camera.x=0;drawPaintedBackdrop();camera.x=W-camera.w;drawPaintedBackdrop()');
-assert.equal(painted.run('nightImages.length'),2,'The exterior uses one panorama at either map edge');
-assert.equal(painted.run('nightImages.every(args=>Math.abs(args[3]/args[4]-1.5)<.001)'),true,'The painted exterior retains its proportions');
-assert.equal(painted.run('nightImages.every(args=>args[2]<=0&&args[2]+args[4]>=H)'),true,'Raised scenery still covers the full vertical world');
+assert.ok(painted.run('nightImages.some(args=>args[0]===illustrations.millCourtyard)&&nightImages.some(args=>args[0]===illustrations.millHomeward)'),'The final journey moves from the mill courtyard to the homeward valley');
+assert.equal(painted.run('nightImages.every(args=>Math.abs((args.length===5?args[3]/args[4]:args[7]/args[8])-1.5)<.001)'),true,'The painted exterior retains its proportions');
+assert.equal(painted.run('nightImages.every(args=>{const y=args.length===5?args[2]:args[6],h=args.length===5?args[4]:args[8];return y<=0&&y+h>=H})'),true,'Raised scenery still covers the full vertical world');
 const switching=boot({},true);
 for(const img of switching.imageRequests)img.onload();
 switching.run('start(6);update(1);down("ArrowRight");touchDown({dataset:{key:"Space"},setAttribute(){}},1)');
@@ -291,16 +291,16 @@ for(const img of switching.imageRequests.slice(5))img.onload();
 assert.equal(switching.run('levelIndex'),0,'Late images cannot switch the current chapter');
 assert.equal(switching.run('illustrationLoading'),false);
 switching.run('start(6)');
-assert.equal(switching.imageRequests.length,7,'Returning to a chapter uses the loaded assets');
+assert.equal(switching.imageRequests.length,8,'Returning to a chapter uses the loaded assets');
 const moonStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],continueLevel:6})},true);
-assert.equal(moonStart.imageRequests.length,6,'The approach loads shared art and two exterior images');
+assert.equal(moonStart.imageRequests.length,7,'The approach loads shared art and three exterior images');
 assert.ok(moonStart.imageRequests.every(img=>!img.url.includes('forest')&&!img.url.includes('harbor')));
 assert.ok(moonStart.imageRequests.every(img=>!img.url.includes('rooftop')&&!img.url.includes('sliding-eave')),'The approach no longer loads the old city roof assets');
 const attic=boot({},true);
 for(const img of attic.imageRequests)img.onload();
 attic.run('start(8)');
 for(const img of attic.imageRequests.slice(5))img.onload();
-assert.equal(attic.imageRequests.length,9,'The final journey reuses mill art and loads its exterior');
+assert.equal(attic.imageRequests.length,13,'The final journey reuses the attic and courtyard art and loads its homeward exterior and cutaway roof');
 assert.equal(attic.run('boards.filter(b=>b.ice).every(b=>!isMillRoom(b.x)&&!isMillRoom(b.x+b.w))'),true,'Frost only appears outdoors');
 assert.equal(attic.run('boards.filter(b=>b.belt).every(b=>isMillRoom(b.x)&&isMillRoom(b.x+b.w))'),true,'Every conveyor fits completely inside the mill room');
 attic.run('checkpoint=5;spawn();update(STEP)');
@@ -311,17 +311,35 @@ assert.equal(attic.run("$('hint').textContent"),attic.run('level.sections[1].hin
 attic.run('checkpoint=11;spawn();update(STEP)');
 assert.equal(attic.run('soundscape.scene'),'roof','Leaving the room restores the outdoor ambience');
 assert.equal(attic.run('surfaceMaterial(boards[10])'),'wood','The cracked bridge is an old wooden beam');
-attic.run('const journeyDraws=[];ctx.drawImage=(...args)=>journeyDraws.push(args);drawBoard(boards[6],6);drawBoard(boards[10],10)');
+attic.run('const journeyDraws=[];ctx.drawImage=(...args)=>journeyDraws.push(args);camera.x=boards[6].x;drawBoard(boards[6],6);camera.x=boards[10].x;drawBoard(boards[10],10)');
 assert.equal(attic.run('journeyDraws.some(args=>args[0]===illustrations.millEnvironment&&args[1]===512)'),true,'The conveyor uses a real canvas machine');
 assert.equal(attic.run('journeyDraws.some(args=>args[0]===illustrations.millExterior&&args[1]===1024)'),true,'The old beam uses the cracked wood art');
 const millStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],continueLevel:7})},true);
-assert.equal(millStart.imageRequests.length,7,'The mill loads only shared art and its three indoor assets');
+assert.equal(millStart.imageRequests.length,10,'The mill loads only shared art and its six indoor assets');
 assert.ok(millStart.imageRequests.every(img=>!img.url.includes('rooftop')&&!img.url.includes('harbor')));
 for(const img of millStart.imageRequests)img.onload();
 millStart.run('next();checkpoint=6;spawn();const startMillX=cat.x;update(STEP)');
 assert.ok(millStart.run('cat.x<startMillX'),'The return conveyor carries a standing cat left');
 millStart.run('cat.ground=false;cat.y-=90;const jumpMillX=cat.x;update(STEP)');
 assert.equal(millStart.run('cat.x'),millStart.run('jumpMillX'),'A jump leaves the return conveyor');
+const roomFailure=boot({},true);
+for(const img of roomFailure.imageRequests)img.onload();
+roomFailure.run('start(7)');
+for(const img of roomFailure.imageRequests.slice(5)){
+  if(/mill-(rooms|hall|attic)-v1/.test(img.url))img.onerror();else img.onload();
+}
+assert.equal(roomFailure.run('illustrationLoading'),false,'Failed room art does not hold the loading screen open');
+assert.doesNotThrow(()=>roomFailure.run('draw();checkpoint=9;spawn();draw()'),'The original mill remains a usable fallback at later lamps');
+assert.equal(roomFailure.run('state'),'play','Room art failures preserve gameplay');
+const journeyFailure=boot({},true);
+for(const img of journeyFailure.imageRequests)img.onload();
+journeyFailure.run('start(8)');
+for(const img of journeyFailure.imageRequests.slice(5)){
+  if(/mill-(courtyard|homeward|attic(?:-roof)?)-v1/.test(img.url))img.onerror();else img.onload();
+}
+assert.equal(journeyFailure.run('illustrationLoading'),false,'New exterior art can fail without trapping the player in loading');
+assert.doesNotThrow(()=>journeyFailure.run('draw();checkpoint=5;spawn();draw();checkpoint=11;spawn();draw()'),'Both sides of the attic retain original-art fallbacks');
+assert.equal(journeyFailure.run('state'),'play');
 const oldPage=boot({},true,false),oldLookup=oldPage.context.document.getElementById;
 const audioLifecycle=boot();
 audioLifecycle.run("start(7);state='clear';syncAudio()");
@@ -378,6 +396,32 @@ feedback.run('start(7);checkpoint=2;spawn();const millDraws=[];ctx.drawImage=(..
 const hopperDraw=feedback.run('millDraws.find(d=>d.args[1]===0&&d.args[2]===512)');
 assert.ok(hopperDraw.args[6]>feedback.run('boards[2].y')+25,'The decorative hopper remains below the playable deck');
 assert.ok(hopperDraw.alpha<.7,'Lower machinery belongs to the quieter background');
+const millPolish=boot();
+for(const [index,support,kind,count] of [[6,0,'stone',5],[6,3,'ice',6],[8,10,'wood',8]]){
+  millPolish.run(`start(${index});checkpoint=${support};spawn();particles=[];cat.ground=false;cat.y=boards[${support}].y-cat.h-2;cat.vy=300;update(STEP)`);
+  assert.equal(millPolish.run(`particles.filter(p=>p.kind==='${kind}').length`),count,'Third-chapter landing feedback follows the actual material');
+  assert.equal(millPolish.run('cat.y+cat.h'),millPolish.run(`boards[${support}].y`),'Lighting and material effects preserve collision contact');
+}
+millPolish.run('start(7);checkpoint=2;spawn();particles=[];const polishRevision=levelRevision(7);cat.ground=false;cat.y=boards[2].y-cat.h-2;cat.vy=300;update(STEP)');
+assert.equal(millPolish.run('particles.filter(p=>p.kind==="wood").length'),8,'A real timber landing releases a small bounded burst');
+assert.equal(millPolish.run('cat.y+cat.h'),millPolish.run('boards[2].y'),'Landing effects preserve the real contact surface');
+millPolish.run('const frozenPolish=JSON.stringify({time,millLanding,particles});pause();update(1);draw()');
+assert.equal(millPolish.run('JSON.stringify({time,millLanding,particles})'),millPolish.run('frozenPolish'),'Pause and rendering do not advance or spawn effects');
+millPolish.run('pause();for(let n=0;n<120;n++)update(STEP)');
+assert.equal(millPolish.run('particles.filter(p=>p.kind).length'),0,'Landing fragments expire');
+assert.equal(millPolish.run('levelRevision(7)'),millPolish.run('polishRevision'),'The sample preserves saved route compatibility');
+millPolish.run('checkpoint=3;spawn();particles=[];cat.ground=false;cat.y=boards[3].y-cat.h-2;cat.vy=300;update(STEP)');
+assert.equal(millPolish.run('particles.filter(p=>p.kind==="flour").length'),8,'Canvas landing uses soft dust instead of timber fragments');
+millPolish.run('start(7);checkpoint=2;spawn();checkpoint=-1;particles=[];update(STEP)');
+assert.equal(millPolish.run('lampIgnition.board'),2,'An actual checkpoint landing starts the lamp transition');
+assert.equal(millPolish.run('particles.filter(p=>p.kind==="ember").length'),5,'Checkpoint ignition uses a small ember burst');
+assert.equal(millPolish.run('lampStrength(2)'),0,'A newly activated lamp starts its short warm-up');
+millPolish.run('for(let n=0;n<30;n++)update(STEP)');
+assert.ok(millPolish.run('lampStrength(2)')>1,'The lamp briefly brightens after warming up');
+millPolish.run('const pausedLamp=lampStrength(2);pause();update(1)');
+assert.equal(millPolish.run('lampStrength(2)'),millPolish.run('pausedLamp'),'Pause freezes checkpoint ignition');
+millPolish.run('start(7,true)');
+assert.equal(millPolish.run('lampIgnition.board'),-1,'Restoring a checkpoint does not replay ignition');
 oldPage.context.document.getElementById=id=>id==='artLoading'?null:oldLookup(id);
 assert.doesNotThrow(()=>{for(const img of oldPage.imageRequests)img.onload();oldPage.run('start(6)')},'A cached older page can load the updated game script');
 const missingArt=boot({},true);

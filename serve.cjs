@@ -6,11 +6,17 @@ Object.assign(types,{'/assets/harbor-afternoon-v1.jpg':'image/jpeg','/assets/har
 Object.assign(types,{'/assets/rooftop-moonlight-v1.jpg':'image/jpeg','/assets/rooftop-atlas-v1.png':'image/png','/assets/rooftop-landmarks-v1.png':'image/png'});
 types['/assets/rooftop-sliding-eave-v1.png']='image/png';
 types['/assets/mill-night-v1.jpg']='image/jpeg';
+types['/assets/mill-rooms-v1.jpg']='image/jpeg';
+types['/assets/mill-hall-v1.jpg']='image/jpeg';
+types['/assets/mill-attic-v1.jpg']='image/jpeg';
+types['/assets/mill-attic-roof-v1.png']='image/png';
 types['/assets/mill-atlas-v1.png']='image/png';
 types['/assets/cat-feedback-v1.png']='image/png';
 types['/audio.js']='text/javascript; charset=utf-8';
 types['/assets/mill-bell-v1.png']='image/png';
 types['/assets/mill-approach-v1.jpg']='image/jpeg';
+types['/assets/mill-courtyard-v1.jpg']='image/jpeg';
+types['/assets/mill-homeward-v1.jpg']='image/jpeg';
 types['/assets/mill-exterior-v1.png']='image/png';
 types['/assets/forest-props-v1.png']='image/png';
 types['/assets/harbor-windsock-v1.png']='image/png';

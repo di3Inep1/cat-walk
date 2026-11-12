@@ -10,14 +10,14 @@ const illustrationFiles={
   harborEnvironment:'assets/harbor-atlas-v1.png',warehouse:'assets/harbor-warehouse-v1.png',
   rooftop:'assets/rooftop-moonlight-v1.jpg',rooftopEnvironment:'assets/rooftop-atlas-v1.png',rooftopLandmarks:'assets/rooftop-landmarks-v1.png',
   slidingEave:'assets/rooftop-sliding-eave-v1.png',
-  mill:'assets/mill-night-v1.jpg',millEnvironment:'assets/mill-atlas-v1.png',millBell:'assets/mill-bell-v1.png',
-  millApproach:'assets/mill-approach-v1.jpg',millExterior:'assets/mill-exterior-v1.png',
+  mill:'assets/mill-night-v1.jpg',millRooms:'assets/mill-rooms-v1.jpg',millHall:'assets/mill-hall-v1.jpg',millAttic:'assets/mill-attic-v1.jpg',millEnvironment:'assets/mill-atlas-v1.png',millBell:'assets/mill-bell-v1.png',
+  millApproach:'assets/mill-approach-v1.jpg',millExterior:'assets/mill-exterior-v1.png',millCourtyard:'assets/mill-courtyard-v1.jpg',millHomeward:'assets/mill-homeward-v1.jpg',millAtticRoof:'assets/mill-attic-roof-v1.png',
   forestProps:'assets/forest-props-v1.png',windsock:'assets/harbor-windsock-v1.png'
 };
 let illustrationLoading=false;
 function requiredIllustrations(){
-  const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['millApproach','millExterior']];
-  const routeArt=levelIndex===7?['mill','millEnvironment','millBell']:levelIndex===8?['millApproach','millExterior','mill','millEnvironment']:chapters[worldIndex()];
+  const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['millApproach','millExterior','millCourtyard']];
+  const routeArt=levelIndex===7?['mill','millRooms','millHall','millAttic','millEnvironment','millBell']:levelIndex===8?['millApproach','millExterior','mill','millEnvironment','millAttic','millCourtyard','millHomeward','millAtticRoof']:chapters[worldIndex()];
   const extras=[];
   if(worldIndex()===0&&(level.saws.length||level.sections.some(s=>s.kind==='shed')))extras.push('forestProps');
   if(worldIndex()===1&&level.sections.some(s=>s.kind==='windmill'))extras.push('windsock');
@@ -269,6 +269,31 @@ let state='menu', time=0, deathDelay=0, buffer=0, coyote=0, jumpHeld=false, accu
 let particles=[], shake=0, landing=0, muted=false, audio=null, fakeTriggered=false;
 const soundscape=typeof WalkAudio==='function'?new WalkAudio():null;
 const millMoment={warned:false,rung:false,age:0};
+const millLanding={age:1,x:0,y:0,force:0};
+const lampIgnition={board:-1,at:-99};
+// Presentation rooms follow the existing route. They never add collision surfaces.
+const MILL_ROOMS=[
+  {id:'entry',from:0,to:660,col:0,row:0,top:110},
+  {id:'hall',from:660,to:2080,col:1,row:0,asset:'millHall',inset:.06,top:-35,window:{x:.528,y:.20,length:360}},
+  {id:'attic',from:2080,to:3150,col:0,row:1,asset:'millAttic',inset:.08,top:-30,window:{x:.415,y:.25,length:250}},
+  {id:'exit',from:3150,to:3670,col:1,row:1,top:35}
+];
+const MILL_JOURNEYS={
+  6:[
+    {id:'outskirts',from:0,to:710,asset:'millApproach',top:-70},
+    {id:'frost-wall',from:710,to:1630,asset:'millCourtyard',top:-50},
+    {id:'sheltered-arch',from:1630,to:2520,asset:'millCourtyard',mirror:true,top:-60},
+    {id:'warm-vestibule',from:2520,to:2950,asset:'millCourtyard',top:20}
+  ],
+  8:[
+    {id:'outer-gallery',from:0,to:1120,asset:'millCourtyard',top:-80},
+    {id:'attic-room',from:1120,to:2260,asset:'millAttic',inset:.08,top:-30,inside:true,window:{x:.415,y:.25,length:260}},
+    {id:'bridge-home',from:2260,to:3180,asset:'millHomeward',top:-170}
+  ]
+};
+const ATTIC_SHELL={left:1120,right:2260,peakX:1690,eaveY:175,peakY:85,depth:20,entryFloor:350,exitFloor:375};
+let atticRoofCanvas=null;
+let atticRoofSource=null;
 const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1};
 // Presentation follows the real movement; it never changes the collision body.
 const catMotion={stride:0,idle:0,turn:0,brake:0,dust:0,launch:0};
@@ -284,7 +309,8 @@ function updateCatMotion(dt,axis,previousVx,previousFace){
   catMotion.idle=cat.ground&&speed<12&&!axis?catMotion.idle+dt:0;
   catMotion.dust=Math.max(0,catMotion.dust-dt);
   if(braking&&catMotion.dust===0){
-    particles.push({x:cat.x+cat.w/2,y:cat.y+cat.h,vx:-previousVx*.08,vy:-12,life:.18,color:'#c9b791'});
+    const ice=worldIndex()===2&&boards[cat.support]?.ice;
+    particles.push({x:cat.x+cat.w/2,y:cat.y+cat.h,vx:-previousVx*.08,vy:-12,life:.18,color:ice?'#c7e3ec':'#c9b791',...(ice?{kind:'ice',size:1,rotation:time,spin:4,maxLife:.18}:{})});
     catMotion.dust=.07;
   }
 }
@@ -437,6 +463,9 @@ function spawn(){
 function loadLevel(i,resume=false){
   levelIndex=i;level=LEVELS[i];checkpoint=-1;time=0;fakeTriggered=false;lessonSeen=new Set();
   Object.assign(millMoment,{warned:false,rung:false,age:0});
+  millLanding.age=1;
+  Object.assign(lampIgnition,{board:-1,at:-99});
+  millDeckCache.clear();
   sceneLabelOpacity.clear();
   W=level.width;
   $('app').setAttribute('data-world',world().scene);
@@ -458,6 +487,21 @@ function start(i=0,resume=false){
   canvas.focus({preventScroll:true});unlockAudio();loadIllustrations();
 }
 function burst(x,y,color,count=12){for(let i=0;i<count;i++)particles.push({x,y,vx:(Math.random()-.5)*150,vy:-Math.random()*120,life:.4+Math.random()*.3,color});}
+function millLandingFeedback(b,speed){
+  const force=Math.min(1,speed/650),x=Math.max(b.x+4,Math.min(b.x+b.w-4,cat.x+cat.w/2));
+  Object.assign(millLanding,{age:0,x,y:b.y,force});
+  const kind=b.ice?'ice':b.belt?'flour':surfaceMaterial(b)==='wood'?'wood':'stone';
+  const count=kind==='ice'?6:kind==='stone'?5:8;
+  // Feedback follows the actual material, without moving the collision surface.
+  for(let i=0;i<count;i++){
+    const life=.24+Math.random()*.28;
+    particles.push({x:x+(Math.random()-.5)*12,y:b.y-1,
+      vx:(Math.random()-.5)*75*force,vy:-(12+Math.random()*42)*force,
+      life,maxLife:life,kind,size:.7+Math.random()*1.1,
+      rotation:Math.random()*Math.PI,spin:(Math.random()-.5)*7,
+      color:kind==='ice'?(i%2?'#cce9ef':'#97bfce'):kind==='stone'?(i%2?'#a6b1bc':'#788a9c'):kind==='flour'?'#e8dcc0':i%2?'#aa8053':'#dfbc83'});
+  }
+}
 function die(reason='失足也没关系，马上再来。'){
   if(state!=='play'||deathDelay>0)return;
   deaths++;deathDelay=.42;shake=5;burst(cat.x+12,cat.y+15,'#ca7957',20);cue('fall');hud();notice(reason);save();
@@ -511,7 +555,8 @@ function overlap(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
 function update(dt){
   if(state!=='play'||illustrationLoading)return;
   elapsed+=dt;time+=dt;shake=Math.max(0,shake-dt*22);landing=Math.max(0,landing-dt*.6);
-  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=260*dt;p.life-=dt;}particles=particles.filter(p=>p.life>0);
+  millLanding.age=Math.min(1,millLanding.age+dt);
+  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=(p.kind==='ember'?-12:p.kind==='flour'?45:260)*dt;p.life-=dt;if(p.spin)p.rotation+=p.spin*dt;}particles=particles.filter(p=>p.life>0);
   if(deathDelay>0){deathDelay-=dt;if(deathDelay<=0)spawn();return;}
   buffer=Math.max(0,buffer-dt);coyote=cat.ground?.10:Math.max(0,coyote-dt);
   const axis=Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA'));
@@ -533,14 +578,16 @@ function update(dt){
       if(b.spring)teach('spring','在蓝色软垫上按住跳跃，可以跳得更高。');
       if(b.ice)teach('ice','薄霜会滑。轻按反方向，可以更快停下。');
       if(b.belt)teach('belt',usesMillDeck(b)?'浅色帆布运粮带会带你走，跳到木台就能停稳。':'箭头屋瓦会推着你走，起跳就能离开它。');
-      if(fallSpeed>150){landing=Math.min(.075,fallSpeed/800*.075);burst(cat.x+12,b.y,'#e4d5b6',8);if(soundscape)soundscape.surface(surfaceMaterial(b),Math.min(1.5,fallSpeed/450));else sound(180,.045,'triangle');}
+      if(fallSpeed>150){landing=Math.min(.075,fallSpeed/800*.075);if(worldIndex()===2)millLandingFeedback(b,fallSpeed);else burst(cat.x+12,b.y,'#e4d5b6',8);if(soundscape)soundscape.surface(surfaceMaterial(b),Math.min(1.5,fallSpeed/450));else sound(180,.045,'triangle');}
       if(b.source===0&&b.local===1)teach('jump','跳得不错。前面的路灯可以歇脚。');
       if(b.fragile&&b.crack<0){
         b.crack=0;lastFallWasBridge=true;cue('crack');
         if(b.source===0)teach('bridge','咔嚓……木板在摇晃，往右跳！');
         else notice('咔嚓……这块木板要塌了！');
       }
-      if(level.checks.includes(i)&&(checkpoint<0||b.x>boards[checkpoint].x)){checkpoint=i;cue('lamp');burst(b.x+35,b.y-35,'#efc97a',20);
+      if(level.checks.includes(i)&&(checkpoint<0||b.x>boards[checkpoint].x)){checkpoint=i;cue('lamp');Object.assign(lampIgnition,{board:i,at:time});
+        const lamp=lampCenter(b.x+40,b.y);
+        for(let spark=0;spark<5;spark++)particles.push({x:lamp.x+(Math.random()-.5)*8,y:lamp.y,vx:(Math.random()-.5)*12,vy:-8-Math.random()*12,life:.45+Math.random()*.35,maxLife:.8,kind:'ember',size:.5+Math.random()*.45,color:'#f6d79b'});
         if(b.source===0)teach('lamp','路灯已点亮。前面的裂纹板，别停太久。');
         else notice('路灯点亮，跌倒后从这里继续。');hud();save();}
       if(levelIndex===0&&i===level.rescue)teach('rescue','接住你了。从右边的小台阶回去就好。');
@@ -651,6 +698,7 @@ function drawChapterBackground(c){
 }
 function drawBoard(b,i){
   if(b.crack>crumbleDelay(b))return;
+  if(worldIndex()===2&&(b.x+b.w<camera.x-70||b.x>camera.x+camera.w+70))return;
   const urgency=b.crack<0?0:b.crack/crumbleDelay(b);
   const jitter=urgency>0?Math.sin(time*65)*urgency*2:0;
   ctx.save();ctx.translate(jitter,0);
@@ -672,14 +720,14 @@ function drawBoard(b,i){
     ctx.fillStyle='#83c7d1';ctx.beginPath();ctx.moveTo(b.x+4,b.y);ctx.quadraticCurveTo(b.x+b.w*.5,b.y-13,b.x+b.w-4,b.y);ctx.fill();
     line(ctx,[[b.x+12,b.y+15],[b.x+23,b.y+8],[b.x+34,b.y+15],[b.x+45,b.y+8]],'#527c8c',1.6);
   }
-  if(b.ice)for(let x=b.x+10;x<b.x+b.w-15;x+=25)line(ctx,[[x,b.y+5],[x+12,b.y+2]],'#e6f5fc',2);
+  if(b.ice&&worldIndex()!==2)for(let x=b.x+10;x<b.x+b.w-15;x+=25)line(ctx,[[x,b.y+5],[x+12,b.y+2]],'#e6f5fc',2);
   if(b.belt){
     const direction=Math.sign(b.belt);
     for(const x of [b.x+18,b.x+b.w-18])line(ctx,[[x-direction*3,b.y+11],[x+direction*3,b.y+14],[x-direction*3,b.y+17]],'#dfc793',1);
   }
   if(level.checks.includes(i)){
     const lit=checkpoint>=0&&b.x<=boards[checkpoint].x;
-    if(illustrations.environment)drawPaintedLamp(b.x+40,b.y,lit);
+    if(illustrations.environment)drawPaintedLamp(b.x+40,b.y,lit,i);
     else{
     line(ctx,[[b.x+40,b.y],[b.x+40,b.y-64]],'#6c6650',3);
     ctx.fillStyle=lit?'#eed48c':'#b0b2a0';ctx.fillRect(b.x+32,b.y-66,16,22);
@@ -699,14 +747,148 @@ function drawPaintedPlatform(b){
   ctx.drawImage(image,frame.x+422,frame.y,90,frame.h,b.x+b.w-cap,y,cap,frame.h*scale);
   if(b.fragile)line(ctx,[[b.x+b.w*.5,b.y+1],[b.x+b.w*.48,b.y+8],[b.x+b.w*.53,b.y+15]],'#62442f',1.5);
 }
-function drawPaintedLamp(x,y,lit){
-  if(lit){
-    ctx.globalAlpha=.08;oval(ctx,x+13,y-44,27,28,'#ffe1a1');
-    ctx.globalAlpha=.12;oval(ctx,x+13,y-44,16,18,'#ffe6b3');
+function lampCenter(x,y){return illustrations.environment?{x:x+14.8,y:y-46.5}:{x,y:y-55};}
+function lampStrength(index){
+  const age=index===lampIgnition.board?time-lampIgnition.at:10;
+  const rise=Math.min(1,Math.max(0,age)/.24);
+  return rise*(1+(age<.8?Math.sin(Math.min(1,age/.8)*Math.PI)*.35:0));
+}
+// Adapted from the reference's separation of emission, surface lighting and bloom.
+// A small reusable alpha-masked surface keeps light on the painted art itself.
+let millReceiverCanvas=null;
+const millDeckCache=new Map();
+function millLightSources(){
+  if(worldIndex()!==2)return [];
+  const sources=[];
+  for(const index of level.checks){
+    const b=boards[index];
+    if(checkpoint<0||b.x>boards[checkpoint].x)continue;
+    const center=lampCenter(b.x+40,b.y);
+    sources.push({...center,radius:142,power:lampStrength(index),board:index});
   }
-  ctx.globalAlpha=lit?1:.72;
+  const exit=chapterExitLight();
+  sources.push({...exit,power:1,board:exitIndex()});
+  return sources;
+}
+function chapterExitLight(){
+  const end=boards[exitIndex()];
+  return levelIndex===8?{x:Math.min(level.finishX+12,W-90)-47,y:end.y-80,radius:190}:
+    {x:level.finishX+(levelIndex===7?24:12),y:end.y-65,radius:levelIndex===7?200:155};
+}
+function millLitSurface(w,h,paint,toLocal,material='wood'){
+  if(!millReceiverCanvas){
+    millReceiverCanvas=document.createElement('canvas');
+    millReceiverCanvas.width=1024;millReceiverCanvas.height=256;
+  }
+  const c=millReceiverCanvas.getContext('2d'),density=4;
+  c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,Math.ceil(w*density),Math.ceil(h*density));
+  c.save();c.scale(density,density);paint(c);
+  c.globalCompositeOperation='source-atop';
+  c.fillStyle=material==='fur'?'rgba(36,55,76,.09)':material==='ice'?'rgba(54,89,120,.10)':material==='stone'?'rgba(29,48,73,.15)':'rgba(27,46,67,.23)';
+  c.fillRect(0,0,w,h);
+  for(const source of millLightSources()){
+    const p=toLocal(source),r=source.radius;
+    if(p.x+r<0||p.x-r>w||p.y+r<0||p.y-r>h)continue;
+    const alpha=Math.min(1.3,source.power)*(material==='fur'?.22:.38);
+    const glow=c.createRadialGradient(p.x,p.y,1,p.x,p.y,r);
+    glow.addColorStop(0,`rgba(255,210,132,${alpha})`);
+    glow.addColorStop(.4,`rgba(248,182,92,${alpha*.65})`);
+    glow.addColorStop(1,'rgba(248,182,92,0)');
+    c.fillStyle=glow;c.fillRect(0,0,w,h);
+  }
+  c.restore();
+  return millReceiverCanvas;
+}
+function millCachedSurface(b,h,paint,toLocal,material='wood'){
+  const key=checkpoint+':'+lampStrength(lampIgnition.board).toFixed(2)+':'+!!illustrations.environment;
+  let cached=millDeckCache.get(b);
+  if(!cached){
+    const bitmap=document.createElement('canvas');bitmap.width=b.w*4;bitmap.height=h*4;
+    cached={bitmap,key:null};millDeckCache.set(b,cached);
+  }
+  if(cached.key!==key){
+    const surface=millLitSurface(b.w,h,paint,toLocal,material);
+    const c=cached.bitmap.getContext('2d');c.clearRect(0,0,cached.bitmap.width,cached.bitmap.height);
+    c.drawImage(surface,0,0,b.w*4,h*4,0,0,b.w*4,h*4);cached.key=key;
+  }
+  return cached.bitmap;
+}
+function drawMillLampBounce(){
+  if(worldIndex()!==2)return;
+  ctx.save();ctx.globalCompositeOperation='screen';
+  for(const source of millLightSources()){
+    const r=source.radius;
+    if(source.x+r<camera.x||source.x-r>camera.x+camera.w)continue;
+    const light=ctx.createRadialGradient(source.x,source.y,4,source.x,source.y,r);
+    light.addColorStop(0,`rgba(255,190,99,${.18*source.power})`);
+    light.addColorStop(.4,`rgba(239,157,70,${.075*source.power})`);
+    light.addColorStop(1,'rgba(239,157,70,0)');
+    ctx.fillStyle=light;ctx.fillRect(source.x-r,source.y-r,r*2,r*2);
+  }
+  ctx.restore();
+}
+function drawMillCastShadow(){
+  if(worldIndex()!==2||deathDelay>0)return;
+  const b=catContactSurface();if(!b)return;
+  const foot=cat.y+cat.h,center=cat.x+cat.w/2,height=b.y-foot;
+  // A shadow can only land on an actual nearby deck, never across a gap.
+  const source=millLightSources().filter(s=>s.y<foot-8&&Math.abs(s.x-center)<s.radius)
+    .sort((a,b)=>Math.abs(a.x-center)-Math.abs(b.x-center))[0];
+  if(!source)return;
+  const reach=Math.max(-65,Math.min(65,(center-source.x)*.65));
+  const contact=1-Math.max(0,height)/80,power=Math.max(0,1-Math.abs(source.x-center)/source.radius);
+  ctx.save();ctx.beginPath();ctx.rect(b.x+1,b.y,b.w-2,12);ctx.clip();
+  const shadow=ctx.createLinearGradient(center,b.y,center+reach,b.y+5);
+  shadow.addColorStop(0,`rgba(28,29,36,${.32*power*contact*source.power})`);
+  shadow.addColorStop(1,'rgba(28,29,36,0)');
+  ctx.fillStyle=shadow;
+  for(let edge=0;edge<5;edge++){
+    ctx.globalAlpha=.2;ctx.beginPath();
+    ctx.ellipse(center+reach*.45,b.y+2.5,Math.abs(reach)*.55+8+edge,1.1+edge*.45,0,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+}
+function drawPaintedLamp(x,y,lit,index){
+  ctx.save();
   ctx.drawImage(illustrations.environment,655,540,235,460,x-13,y-72.2,37.6,73.6);
-  ctx.globalAlpha=1;
+  // Shade only the four glass panes, preserving the original brass frame and crossbars.
+  ctx.save();ctx.beginPath();
+  const panes=[[[10.5,-50],[14.3,-46.6],[10.7,-43]],[[11.1,-50.6],[18.5,-50.6],[14.8,-47.1]],
+    [[19,-50],[19,-43],[15.4,-46.6]],[[11.2,-42.4],[14.8,-46],[18.5,-42.4]]];
+  for(const pane of panes){ctx.moveTo(x+pane[0][0],y+pane[0][1]);for(const p of pane.slice(1))ctx.lineTo(x+p[0],y+p[1]);ctx.closePath();}
+  ctx.clip();
+  const strength=lit?lampStrength(index):0;
+  ctx.fillStyle=`rgba(35,43,46,${.94*(1-Math.min(1,strength))})`;
+  ctx.fillRect(x+9,y-52,12,12);
+  if(lit){
+    ctx.globalCompositeOperation='screen';ctx.globalAlpha=.5*Math.min(1.3,strength);
+    const core=ctx.createRadialGradient(x+14.8,y-46,0,x+14.8,y-46,6);
+    core.addColorStop(0,'#fff5ca');core.addColorStop(.45,'#ffc45f');core.addColorStop(1,'rgba(255,170,61,0)');
+    ctx.fillStyle=core;ctx.fillRect(x+9,y-52,12,12);
+  }
+  ctx.restore();ctx.restore();
+}
+function drawCheckpointGlow(){
+  ctx.save();ctx.globalCompositeOperation='screen';
+  for(const index of level.checks){
+    const b=boards[index];
+    if(checkpoint<0||b.x>boards[checkpoint].x||b.x+110<camera.x||b.x>camera.x+camera.w)continue;
+    const lamp=lampCenter(b.x+40,b.y),strength=lampStrength(index);
+    const night=worldIndex()===2,alpha=(night?.25:.18)*strength,r=night?49:38;
+    const glow=ctx.createRadialGradient(lamp.x,lamp.y,1,lamp.x,lamp.y,r);
+    glow.addColorStop(0,`rgba(255,214,136,${alpha})`);
+    glow.addColorStop(.28,`rgba(255,192,94,${alpha*.48})`);
+    glow.addColorStop(1,'rgba(245,174,74,0)');
+    ctx.fillStyle=glow;ctx.fillRect(lamp.x-r,lamp.y-r,r*2,r*2);
+    // A soft pool sits on the real deck; clipping prevents light floating over gaps.
+    ctx.save();ctx.beginPath();ctx.rect(b.x,b.y-3,b.w,14);ctx.clip();
+    ctx.translate(lamp.x,b.y+1);ctx.scale(1,.16);
+    const pool=ctx.createRadialGradient(0,0,0,0,0,44);
+    pool.addColorStop(0,`rgba(255,203,114,${strength*(night?.34:.22)})`);
+    pool.addColorStop(1,'rgba(255,188,89,0)');
+    ctx.fillStyle=pool;ctx.fillRect(-44,-44,88,88);ctx.restore();
+  }
+  ctx.restore();
 }
 function drawPaintedDock(b){
   const image=illustrations.harborEnvironment;
@@ -722,12 +904,29 @@ function drawMillBoard(b){
   const image=illustrations.millEnvironment,sourceX=b.belt?512:0;
   const y=b.y-1,cap=24,height=34;
   // A complete wooden machine frame remains stationary below the moving canvas.
-  ctx.drawImage(image,sourceX,210,120,170,b.x,y,cap,height);
-  ctx.drawImage(image,sourceX+120,210,272,170,b.x+cap,y,b.w-cap*2,height);
-  ctx.drawImage(image,sourceX+392,210,120,170,b.x+b.w-cap,y,cap,height);
+  if(worldIndex()===2){
+    // Timber lighting is static between checkpoint transitions. Cache its painted
+    // result; the canvas belt and the cat still animate independently every frame.
+    const surface=millCachedSurface(b,height,c=>{
+      c.drawImage(image,sourceX,210,120,170,0,0,cap,height);
+      c.drawImage(image,sourceX+120,210,272,170,cap,0,b.w-cap*2,height);
+      c.drawImage(image,sourceX+392,210,120,170,b.w-cap,0,cap,height);
+    },source=>({x:source.x-b.x,y:source.y-y}));
+    ctx.drawImage(surface,b.x,y,b.w,height);
+  }else{
+    ctx.drawImage(image,sourceX,210,120,170,b.x,y,cap,height);
+    ctx.drawImage(image,sourceX+120,210,272,170,b.x+cap,y,b.w-cap*2,height);
+    ctx.drawImage(image,sourceX+392,210,120,170,b.x+b.w-cap,y,cap,height);
+  }
   ctx.save();ctx.globalAlpha=.26;
   line(ctx,[[b.x+4,b.y+.5],[b.x+b.w-4,b.y+.5]],b.belt?'#fff1cd':'#f3d4a5',.8);
   ctx.restore();
+  if(worldIndex()===2&&!b.belt&&millLanding.age<.32&&Math.abs(millLanding.y-b.y)<1&&millLanding.x>=b.x&&millLanding.x<=b.x+b.w){
+    const t=millLanding.age/.32;
+    ctx.save();ctx.globalAlpha=(1-t)*millLanding.force*.32;
+    line(ctx,[[Math.max(b.x+4,millLanding.x-12-t*24),b.y+9],[millLanding.x,b.y+10+Math.sin(t*Math.PI*3)*(1-t)],[Math.min(b.x+b.w-4,millLanding.x+12+t*24),b.y+9]],'#f4d7a6',.8);
+    ctx.restore();
+  }
   if(b.belt){
     const left=b.x+cap,right=b.x+b.w-cap,tile=54.4;
     const offset=((time*b.belt)%tile+tile)%tile;
@@ -771,7 +970,7 @@ function drawMillLandmarks(){
   for(const section of level.sections){
     const b=boards[section.board],x=b.x+b.w*.65;
     if(x<camera.x-180||x>camera.x+camera.w+180)continue;
-    sceneLabel(section.name+' →',x,b.y-137,{center:true});
+    if(!illustrations.millRooms||section.kind==='hopper'||section.kind==='pulley')sceneLabel(section.name+' →',x,b.y-137,{center:true});
   }
   const end=boards[exitIndex()];
   ctx.drawImage(image,1024,512,512,512,level.finishX-45,end.y-146,153,153);
@@ -794,17 +993,177 @@ function drawMillBell(){
     ctx.restore();
   }
 }
+// Each authored room has its own fixed back wall and a small amount of parallax.
+function millRoomFrame(room){
+  const width=Math.max(810,room.to-room.from+160,(H-room.top)*1.5),center=(room.from+room.to)/2;
+  return {x:center-width/2+(camera.x+camera.w/2-center)*.035,y:room.top,w:width,h:width*2/3};
+}
+function drawMillRooms(){
+  const image=illustrations.millRooms;
+  if(!image)return false;
+  ctx.fillStyle='#566265';ctx.fillRect(camera.x,0,camera.w,H);
+  for(const room of MILL_ROOMS){
+    const frame=millRoomFrame(room);
+    if(room.to<camera.x||room.from>camera.x+camera.w)continue;
+    const detail=illustrations[room.asset],source=detail||image;
+    const sw=(source.naturalWidth||1536)/(detail?1:2),sh=(source.naturalHeight||1024)/(detail?1:2);
+    const inset=detail?(room.inset||0):0;
+    ctx.save();ctx.beginPath();ctx.rect(room.from,0,room.to-room.from,H);ctx.clip();
+    ctx.drawImage(source,(detail?0:room.col*sw)+sw*inset,detail?0:room.row*sh,sw*(1-inset*2),sh,frame.x,frame.y,frame.w,frame.h);
+    ctx.restore();
+  }
+  return true;
+}
+// Window light shares the exact back-wall transform, including room parallax.
+function drawMillAir(){
+  if(levelIndex!==7&&levelIndex!==8)return;
+  ctx.save();
+  if(levelIndex===8)clipAtticInterior();
+  ctx.fillStyle=levelIndex===8||illustrations.millRooms?'rgba(23,36,54,.15)':'rgba(23,36,54,.22)';ctx.fillRect(camera.x,0,camera.w,H);
+  const shafts=[];
+  if(levelIndex===8||illustrations.millRooms){
+    for(const room of levelIndex===8?MILL_JOURNEYS[8]:MILL_ROOMS){
+      if(!room.window)continue;
+      const frame=millRoomFrame(room);
+      const inset=illustrations[room.asset]?(room.inset||0):0;
+      shafts.push({x:frame.x+frame.w*(room.window.x-inset)/(1-inset*2),top:frame.y+frame.h*room.window.y,length:room.window.length});
+    }
+  }else{
+  const width=810,offset=camera.x*.18;
+  for(let tile=Math.floor(offset/width)-1;tile<=Math.floor((offset+camera.w)/width)+1;tile++){
+    shafts.push({x:tile*width+camera.x*.82+(tile%2?395:415),top:64,length:441});
+  }
+  }
+  for(const shaft of shafts){
+    const {x,top}=shaft,bottom=top+shaft.length;
+    if(x<camera.x-80||x-225>camera.x+camera.w)continue;
+    const light=ctx.createLinearGradient(x,top,x-160,bottom);
+    light.addColorStop(0,'rgba(193,216,239,.12)');
+    light.addColorStop(.48,'rgba(193,216,239,.05)');
+    light.addColorStop(1,'rgba(193,216,239,0)');
+    ctx.fillStyle=light;ctx.globalAlpha=1/16;
+    // Nested translucent ribbons feather the shaft instead of leaving a hard triangle.
+    for(let feather=0;feather<16;feather++){
+      const width=1-feather*.044;
+      ctx.beginPath();ctx.moveTo(x-15*width,top);ctx.lineTo(x+15*width,top);
+      ctx.lineTo(x-180+80*width,bottom);ctx.lineTo(x-180-80*width,bottom);ctx.closePath();ctx.fill();
+    }
+    // Dust stays in the light volume, with gentle drift and no particle spawning.
+    for(let i=0;i<32;i++){
+      const phase=((i*.6180339+time*.013)%1+1)%1;
+      const y=top+phase*(bottom-top),spread=12+phase*68;
+      const px=x-phase*182+Math.sin(i*7.31+time*.23)*spread;
+      ctx.globalAlpha=Math.sin(phase*Math.PI)*(.18+(i%4)*.065);
+      oval(ctx,px,y,.45+i%3*.17,.5+i%3*.19,i%3?'#d4dfe5':'#f9e7bd');
+    }
+    ctx.globalAlpha=1;
+  }
+  ctx.restore();
+}
+function drawMillGrain(){
+  if(worldIndex()!==2)return;
+  ctx.save();
+  for(const b of boards){
+    if(!b.belt||b.x+b.w<camera.x-70||b.x>camera.x+camera.w+70)continue;
+    const direction=Math.sign(b.belt),edge=direction>0?b.x+b.w-7:b.x+7;
+    // Grain rides along the back edge, then trickles into a lower collection bay.
+    ctx.globalAlpha=.72;
+    for(let i=0;i<15;i++){
+      const progress=((i/15+time*b.belt/b.w)%1+1)%1;
+      const x=b.x+10+progress*(b.w-20);
+      oval(ctx,x,b.y-2-(i%3)*.35,1.15,.55,i%3?'#d8ba78':'#f1d6a0');
+    }
+    for(let i=0;i<12;i++){
+      const p=(time*.7+i/12)%1,x=edge+direction*(p*13)+Math.sin(i*3)*2;
+      const y=b.y+3+p*p*83;
+      ctx.globalAlpha=(1-p)*.65;
+      oval(ctx,x,y,.8,.5,'#e8c98e');
+    }
+    const trayX=edge+direction*15;
+    ctx.globalAlpha=.48;
+    oval(ctx,trayX,b.y+90,19,4,'#382b25');
+    oval(ctx,trayX,b.y+88,15,2.5,'#ba945c');
+    line(ctx,[[trayX-20,b.y+86],[trayX-16,b.y+99],[trayX+16,b.y+99],[trayX+20,b.y+86]],'#997449',2);
+    for(let i=0;i<7;i++){
+      const p=(time*.14+i*.142857)%1;
+      ctx.globalAlpha=(1-p)*.1;
+      oval(ctx,trayX+Math.sin(i*9+time*.3)*p*25,b.y+82-p*28,2+p*3,1+p*2,'#eee1c6');
+    }
+  }
+  ctx.restore();
+}
+function drawMillWarmth(){
+  if(worldIndex()!==2)return;
+  ctx.save();
+  const lamps=[];
+  const exit=chapterExitLight();
+  lamps.push({x:exit.x,y:exit.y,r:levelIndex===8?110:155,alpha:levelIndex===7?.27:levelIndex===8?.16:.13});
+  ctx.globalCompositeOperation='screen';
+  for(const lamp of lamps){
+    if(lamp.x+lamp.r<camera.x||lamp.x-lamp.r>camera.x+camera.w)continue;
+    const glow=ctx.createRadialGradient(lamp.x,lamp.y,3,lamp.x,lamp.y,lamp.r);
+    glow.addColorStop(0,`rgba(255,197,105,${lamp.alpha})`);
+    glow.addColorStop(.4,`rgba(244,173,82,${lamp.alpha*.4})`);
+    glow.addColorStop(1,'rgba(244,173,82,0)');
+    ctx.fillStyle=glow;ctx.fillRect(lamp.x-lamp.r,lamp.y-lamp.r,lamp.r*2,lamp.r*2);
+  }
+  ctx.restore();
+}
+function drawMillForeground(){
+  if(levelIndex!==7)return;
+  ctx.save();
+  // Near timber passes faster than the back wall. Fade it near the cat.
+  const offset=camera.x*1.12;
+  const posts=illustrations.millRooms?MILL_ROOMS.slice(1).map(room=>room.from):
+    Array.from({length:Math.floor((offset+camera.w)/920)-Math.floor(offset/920)+1},(_,n)=>(n+Math.floor(offset/920))*920+86-camera.x*.12);
+  for(const x of posts){
+    if(x<camera.x-100||x>camera.x+camera.w+100)continue;
+    const nearCat=Math.max(0,1-Math.abs(x-cat.x-cat.w/2)/65);
+    if(illustrations.millRooms&&illustrations.millEnvironment){
+      ctx.globalAlpha=.85-nearCat*.2;
+      ctx.drawImage(illustrations.millEnvironment,1186,45,28,400,x-10,-30,20,H+60);
+      ctx.globalAlpha=.28;
+      line(ctx,[[x-13,-20],[x-13,H+20]],'#292c30',4);
+      continue;
+    }
+    ctx.globalAlpha=.17-nearCat*.12;
+    line(ctx,[[x,-20],[x+3,H+20]],'#342b29',17);
+    line(ctx,[[x+5,-20],[x+8,H+20]],'#ae8056',2);
+    line(ctx,[[x,80],[x+94,-20]],'#48332b',12);
+    for(let notch=0;notch<8;notch++){
+      const y=notch*73+24;
+      line(ctx,[[x-4,y],[x+4,y+13]],'#977653',.8);
+    }
+  }
+  // Keep the route bright; only the edges receive the cool indoor falloff.
+  const shade=ctx.createLinearGradient(0,camera.y,0,camera.y+camera.h);
+  shade.addColorStop(0,'rgba(19,26,39,.13)');
+  shade.addColorStop(.45,'rgba(19,26,39,0)');
+  shade.addColorStop(.78,'rgba(19,26,39,0)');
+  shade.addColorStop(1,'rgba(19,26,39,.15)');
+  ctx.globalAlpha=1;ctx.fillStyle=shade;ctx.fillRect(camera.x,camera.y,camera.w,camera.h);
+  ctx.restore();
+}
 function drawMillExteriorBoard(b){
   const image=illustrations.millExterior,sourceX=b.fragile?1024:b.ice?0:512;
   const y=b.y-1,cap=20,height=24;
-  ctx.drawImage(image,sourceX,228,100,120,b.x,y,cap,height);
-  const end=b.x+b.w-cap;
-  if(b.fragile)ctx.drawImage(image,sourceX+100,228,312,120,b.x+cap,y,b.w-cap*2,height);
-  else for(let x=b.x+cap;x<end;x+=62.4){
-    const width=Math.min(62.4,end-x);
-    ctx.drawImage(image,sourceX+100,228,width/.2,120,x,y,width,height);
+  const surface=millCachedSurface(b,height,c=>{
+    c.drawImage(image,sourceX,228,100,120,0,0,cap,height);
+    const end=b.w-cap;
+    if(b.fragile)c.drawImage(image,sourceX+100,228,312,120,cap,0,b.w-cap*2,height);
+    else for(let x=cap;x<end;x+=62.4){
+      const width=Math.min(62.4,end-x);
+      c.drawImage(image,sourceX+100,228,width/.2,120,x,0,width,height);
+    }
+    c.drawImage(image,sourceX+412,228,100,120,end,0,cap,height);
+  },source=>({x:source.x-b.x,y:source.y-y}),b.ice?'ice':b.fragile?'wood':'stone');
+  ctx.drawImage(surface,b.x,y,b.w,height);
+  if(b.ice){
+    ctx.save();ctx.globalAlpha=.22+.07*Math.sin(time*.8+b.x);
+    line(ctx,[[b.x+4,b.y],[b.x+b.w-4,b.y]],'#cbeaf2',.8);
+    for(let x=b.x+17;x<b.x+b.w-12;x+=43)line(ctx,[[x,b.y+3],[x+6,b.y+1]],'#e9f6f7',.65);
+    ctx.restore();
   }
-  ctx.drawImage(image,sourceX+412,228,100,120,end,y,cap,height);
 }
 function drawMillPortal(x,y,home=false){
   const image=illustrations.millExterior;if(!image)return;
@@ -813,6 +1172,54 @@ function drawMillPortal(x,y,home=false){
   const scale=home?.34:.28;
   ctx.save();ctx.translate(x,y);if(home)ctx.scale(-1,1);
   ctx.drawImage(image,home?1024:512,512,512,512,-256*scale,-490*scale,512*scale,512*scale);ctx.restore();
+}
+function clipAtticInterior(){
+  const s=ATTIC_SHELL;
+  ctx.beginPath();ctx.moveTo(s.left,s.eaveY+s.depth);ctx.lineTo(s.peakX,s.peakY+s.depth);
+  ctx.lineTo(s.right,s.eaveY+s.depth);ctx.lineTo(s.right,H);ctx.lineTo(s.left,H);ctx.closePath();ctx.clip();
+}
+function drawAtticShell(){
+  const image=illustrations.millExterior;if(levelIndex!==8||!image)return;
+  const s=ATTIC_SHELL,overhang=40,left=s.left-overhang,right=s.right+overhang,top=s.peakY-10;
+  if(right<camera.x||left>camera.x+camera.w)return;
+  const width=right-left,height=s.eaveY-s.peakY+s.depth+20;
+  const roof=illustrations.millAtticRoof||null;
+  if(!atticRoofCanvas||atticRoofSource!==roof){
+    atticRoofCanvas=document.createElement('canvas');atticRoofCanvas.width=width*2;atticRoofCanvas.height=height*2;
+    atticRoofSource=roof;
+    const c=atticRoofCanvas.getContext('2d');c.scale(2,2);
+    c.beginPath();c.moveTo(0,s.eaveY-top);c.lineTo(s.peakX-left,s.peakY-top);
+    c.lineTo(width,s.eaveY-top);c.lineTo(width,s.eaveY+s.depth-top);
+    c.lineTo(s.peakX-left,s.peakY+s.depth-top);c.lineTo(0,s.eaveY+s.depth-top);c.closePath();c.clip();
+    c.fillStyle='#596471';c.fillRect(0,0,width,height);
+    // Restrict the painted roof to the sloping section, keeping the loft open below it.
+    if(roof)c.drawImage(roof,20,332,1496,240,0,s.peakY-top,width,s.eaveY-s.peakY+s.depth+15);
+    if(roof)for(const [ax,ay,bx,by] of [[0,s.eaveY+s.depth-top,s.peakX-left,s.peakY+s.depth-top],[s.peakX-left,s.peakY+s.depth-top,width,s.eaveY+s.depth-top]]){
+      c.save();c.translate(ax,ay);c.rotate(Math.atan2(by-ay,bx-ax));
+      c.drawImage(roof,80,530,1300,26,0,-6,Math.hypot(bx-ax,by-ay),8);c.restore();
+    }
+  }
+  ctx.save();
+  ctx.drawImage(atticRoofCanvas,left,top,width,height);
+  // Wall end sections sit above and below the passage, leaving the cat's route open.
+  for(const [x,floor,inward] of [[s.left,s.entryFloor,1],[s.right,s.exitFloor,-1]]){
+    if(x<camera.x-100||x>camera.x+camera.w+100)continue;
+    const wallX=x-13,bottom=floor+18;
+    ctx.drawImage(image,205,530,100,475,wallX,bottom,26,H-bottom);
+    ctx.drawImage(image,205,530,100,50,wallX,s.eaveY+s.depth-4,26,14);
+    const reveal=ctx.createLinearGradient(x,0,x+inward*22,0);
+    reveal.addColorStop(0,'rgba(18,25,32,.34)');reveal.addColorStop(1,'rgba(18,25,32,0)');
+    ctx.fillStyle=reveal;ctx.fillRect(Math.min(x,x+inward*22),s.eaveY+s.depth+10,22,floor-s.eaveY-s.depth-10);
+    ctx.globalAlpha=.18;
+    ctx.fillStyle='#142130';ctx.fillRect(x+(inward>0?13:-21),bottom,8,H-bottom);
+    ctx.globalAlpha=1;
+    if(illustrations.millEnvironment){
+      const dx=inward*70,dy=-30;
+      ctx.save();ctx.translate(x,s.eaveY+s.depth+4);ctx.rotate(Math.atan2(dy,dx)-Math.PI/2);
+      ctx.drawImage(illustrations.millEnvironment,1186,45,28,400,-3.5,0,7,Math.hypot(dx,dy));ctx.restore();
+    }
+  }
+  ctx.restore();
 }
 function drawMillJourneyLandmarks(){
   const image=illustrations.millExterior;
@@ -824,16 +1231,11 @@ function drawMillJourneyLandmarks(){
     else for(const x of [b.x+5,b.x+b.w-41])ctx.drawImage(image,180,520,150,490,x,b.y+12,36,H-b.y-12);
   }
   ctx.restore();
-  if(levelIndex===8&&illustrations.millEnvironment){
-    // Cutaway edges identify the room: the conveyor stays entirely inside it.
-    const timber=illustrations.millEnvironment;
-    for(const x of [1120,2260])ctx.drawImage(timber,1184,35,32,430,x-6,-8,12,H+16);
-    drawMillPortal(1190,350);drawMillPortal(2220,375);
-  }
+  if(levelIndex===8)drawAtticShell();
   for(const section of level.sections){
     const b=boards[section.board],x=b.x+b.w*.65;
     if(x<camera.x-180||x>camera.x+camera.w+180)continue;
-    sceneLabel(section.name+' →',x,b.y-115,{center:true});
+    if(section.kind==='frost'||section.kind==='repair')sceneLabel(section.name+' →',x,b.y-115,{center:true,tone:section.kind==='repair'?'warning':'guide'});
   }
   const end=boards[exitIndex()];
   drawMillPortal(level.finishX+12,end.y,levelIndex===8);
@@ -879,7 +1281,56 @@ function drawSlidingEave(b){
     line(ctx,[[x+dy,b.y+29-dx],[x-dy,b.y+29+dx]],'#d0ae68',.8);
   }
 }
+function drawMillJourneyBackdrop(){
+  const rooms=MILL_JOURNEYS[levelIndex],fallback=illustrations.millApproach||illustrations.millCourtyard;
+  if(!rooms||!fallback)return false;
+  ctx.fillStyle='#3c4c68';ctx.fillRect(camera.x,0,camera.w,H);
+  if(levelIndex===8){
+    // Outdoor sky continues behind the roof, rather than switching to indoor rafters above it.
+    const width=Math.max(990,camera.w+(W-camera.w)*.18);
+    ctx.drawImage(fallback,camera.x*.82,-110,width,width*2/3);
+  }
+  for(const room of rooms){
+    if(room.to<camera.x||room.from>camera.x+camera.w)continue;
+    const frame=millRoomFrame(room),image=illustrations[room.asset]||(room.inside?illustrations.mill:null)||fallback;
+    const sw=image.naturalWidth||1536,sh=image.naturalHeight||1024,inset=room.inset||0;
+    ctx.save();ctx.beginPath();ctx.rect(room.from,0,room.to-room.from,H);ctx.clip();
+    if(room.inside)clipAtticInterior();
+    if(room.mirror){ctx.translate(frame.x+frame.w,0);ctx.scale(-1,1);}
+    ctx.drawImage(image,sw*inset,0,sw*(1-inset*2),sh,room.mirror?0:frame.x,frame.y,frame.w,frame.h);
+    ctx.restore();
+  }
+  return true;
+}
+function drawMillJourneyFraming(){
+  if(levelIndex!==6||!illustrations.millExterior)return;
+  ctx.save();ctx.globalAlpha=.6;
+  for(const room of MILL_JOURNEYS[6].slice(1)){
+    if(room.from<camera.x-30||room.from>camera.x+camera.w+30)continue;
+    ctx.drawImage(illustrations.millExterior,205,530,100,475,room.from-14,-20,28,H+40);
+  }
+  ctx.restore();
+}
+function drawMillOutdoorAir(){
+  if(levelIndex!==6&&levelIndex!==8)return;
+  ctx.save();ctx.beginPath();
+  if(levelIndex===8){ctx.rect(0,0,1120,H);ctx.rect(2260,0,W-2260,H);}else ctx.rect(0,0,W,H);
+  ctx.clip();ctx.fillStyle='rgba(25,42,69,.055)';ctx.fillRect(camera.x,0,camera.w,H);
+  // Quiet silver drift belongs outdoors. It never continues through the attic wall.
+  for(let tile=Math.floor(camera.x/700);tile<=Math.floor((camera.x+camera.w)/700);tile++){
+    for(let i=0;i<20;i++){
+      const x=tile*700+((i*97-time*5)%700+700)%700;
+      if(isMillRoom(x))continue;
+      const y=95+(i*53)%365+Math.sin(time*.23+i)*7;
+      ctx.globalAlpha=.10+(i%3)*.045;
+      oval(ctx,x,y,.45+(i%2)*.2,.45,'#c7dce7');
+    }
+  }
+  ctx.restore();
+}
 function drawPaintedBackdrop(){
+  if(levelIndex===7&&drawMillRooms())return;
+  if((levelIndex===6||levelIndex===8)&&drawMillJourneyBackdrop())return;
   const image=levelIndex===7?illustrations.mill:worldIndex()===2?illustrations.millApproach:[illustrations.forest,illustrations.harbor][worldIndex()];
   if(worldIndex()===2&&levelIndex!==7){
     // One exterior panorama retains the painted proportions across the journey.
@@ -1005,7 +1456,17 @@ function drawCat(){
     const pose=catPresentation(),frame=pose.frame,scale=54/512;
     ctx.save();ctx.translate(cat.x+cat.w/2,cat.y+cat.h);
     ctx.rotate(pose.lean);ctx.scale(cat.face*pose.sx,pose.sy);
-    ctx.drawImage(illustrations[pose.sheet],(frame%3)*512,Math.floor(frame/3)*512,512,512,-pose.pivot*scale,-pose.foot*scale-pose.bounce,54,54);
+    if(worldIndex()===2){
+      const surface=millLitSurface(54,54,c=>{
+        c.drawImage(illustrations[pose.sheet],(frame%3)*512,Math.floor(frame/3)*512,512,512,0,0,54,54);
+      },source=>{
+        const dx=source.x-cat.x-cat.w/2,dy=source.y-cat.y-cat.h;
+        const localX=dx*Math.cos(pose.lean)+dy*Math.sin(pose.lean);
+        const localY=-dx*Math.sin(pose.lean)+dy*Math.cos(pose.lean);
+        return {x:localX/(cat.face*pose.sx)+pose.pivot*scale,y:localY/pose.sy+pose.foot*scale+pose.bounce};
+      },'fur');
+      ctx.drawImage(surface,0,0,216,216,-pose.pivot*scale,-pose.foot*scale-pose.bounce,54,54);
+    }else ctx.drawImage(illustrations[pose.sheet],(frame%3)*512,Math.floor(frame/3)*512,512,512,-pose.pivot*scale,-pose.foot*scale-pose.bounce,54,54);
     ctx.restore();return;
   }
   ctx.save();ctx.translate(cat.x+11.5,cat.y+30);
@@ -1267,11 +1728,16 @@ function draw(dt=1/60){
   ctx.setTransform(camera.pixelWidth/camera.w,0,0,camera.pixelHeight/camera.h,0,0);
   ctx.clearRect(0,0,camera.w,camera.h);
   ctx.save();ctx.translate(-camera.x,-camera.y);
-  if(levelIndex===7?illustrations.mill:worldIndex()===2?illustrations.millApproach:[illustrations.forest,illustrations.harbor][worldIndex()])drawPaintedBackdrop();
+  if(levelIndex===7?(illustrations.mill||illustrations.millRooms):worldIndex()===2?(illustrations.millApproach||illustrations.millCourtyard):[illustrations.forest,illustrations.harbor][worldIndex()])drawPaintedBackdrop();
   else for(let tile=Math.floor(camera.x/960);tile<=Math.floor((camera.x+camera.w)/960);tile++)ctx.drawImage(background,tile*960,0);
   if(shake)ctx.translate(Math.sin(time*90)*shake,Math.cos(time*70)*shake*.5);
+  drawMillAir();
+  drawMillForeground();
+  drawMillJourneyFraming();
+  drawMillOutdoorAir();
+  drawMillLampBounce();
   // Tiny drifting pollen is decorative; collision surfaces stay perfectly stable.
-  for(let i=0;i<18;i++)oval(ctx,(i*83+time*5)%W,90+(i*41)%340+Math.sin(time+i)*6,1.3,1.3,'#f7edcb');
+  if(worldIndex()!==2)for(let i=0;i<18;i++)oval(ctx,(i*83+time*5)%W,90+(i*41)%340+Math.sin(time+i)*6,1.3,1.3,'#f7edcb');
   if(level.showcase)drawHarborLandmarks();
   if(levelIndex===7)drawMillLandmarks();
   else if(worldIndex()===2)drawMillJourneyLandmarks();
@@ -1285,6 +1751,7 @@ function draw(dt=1/60){
     sceneLabel(zone.speed>0?'顺风区 →':'← 逆风区',zone.from+20,300,{important:true});
   }
   boards.forEach(drawBoard);
+  drawMillGrain();
   drawLessonSigns();
   for(const [x,y,w] of level.thorns){for(let j=0;j<w;j+=10){ctx.fillStyle='#a76050';ctx.beginPath();ctx.moveTo(x+j,y+14);ctx.quadraticCurveTo(x+j+3,y+3,x+j+7,y);ctx.lineTo(x+j+10,y+14);ctx.fill();line(ctx,[[x+j+3,y+12],[x+j+7,y+3]],'#6b493f');}}
   const end=boards[exitIndex()];
@@ -1305,9 +1772,18 @@ function draw(dt=1/60){
     else{oval(ctx,f.x,y,9,4,'#c2954e');ctx.fillStyle='#c2954e';ctx.beginPath();ctx.moveTo(f.x-7,y);ctx.lineTo(f.x-13,y-5);ctx.lineTo(f.x-13,y+5);ctx.fill();oval(ctx,f.x+5,y-1,1,1,'#66533c');}
   }
   drawCatContact();
+  drawMillCastShadow();
   drawSceneLabels(dt);
   drawCat();
-  for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*1.5);oval(ctx,p.x,p.y,2,1.5,p.color);}ctx.globalAlpha=1;
+  for(const p of particles){
+    ctx.globalAlpha=Math.max(0,p.maxLife?p.life/p.maxLife:p.life*1.5);
+    if(p.kind==='wood'||p.kind==='ice'||p.kind==='stone'){
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rotation);ctx.fillStyle=p.color;
+      ctx.fillRect(-p.size,-.4,p.size*2,.8);ctx.restore();
+    }else oval(ctx,p.x,p.y,p.size||2,p.size?p.size*.7:1.5,p.color);
+  }ctx.globalAlpha=1;
+  drawCheckpointGlow();
+  drawMillWarmth();
   ctx.restore();
   $('timer').textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(Math.floor(elapsed%60)).padStart(2,'0');
   $('routeProgress').style.width=Math.max(0,Math.min(100,(cat.x+cat.w)/W*100))+'%';
