@@ -18,6 +18,12 @@
 
 ## 实际生成提示词
 
+### 猫猫动作反馈扩展（内置 imagegen）
+
+cat-feedback-v1.png：1536 × 1024，透明 3 × 2 图集。以 cat-gouache-v1.png 为角色参考，补充眨眼、刹车、回望、抬头、落地、放松。逐帧脚底为 451、451、450、445、443、444 像素，绘制按脚底对齐真实碰撞面。跑步周期跟随水平速度；眨眼与抬头仅待机时出现；姿态反馈不改动物理碰撞和跳跃响应。
+
+Use case: identity-preserve. Reference image is the existing orange kitten sprite sheet, preserve EXACT character identity, scarf, proportions, gouache colored pencil rendering and warm cream paws. Create an ADDITIONAL true transparent production sprite sheet, 1536x1024, exactly THREE columns TWO rows, each cell512x512. One whole kitten per cell, all facing RIGHT. Same head size and standing body scale as reference TOP LEFT pose, nose near cell x435, hind paw near x150, front paw near x330, baseline feet at cell y450, centered with generous transparent gutters. TOP LEFT: standing idle same reference pose with BOTH EYES gently closed in a blink. TOP MIDDLE: braking, front cream paws planted forward, hindquarters slightly low, ears attentive, same friendly face. TOP RIGHT: turning glance over shoulder while body remains facing right, four paws planted. BOTTOM LEFT: standing alert, tiny head tilt upward and ears pricked. BOTTOM MIDDLE: soft landing with paws firmly planted and knees gently bent, body only a little lower than reference, no extreme squash. BOTTOM RIGHT: relaxed standing, curled tail lowered slightly, content eyes open. Precise consistent original orange tabby face, amber eyes, cream chest and muzzle, sage scarf. Do not add shadows, ground, motion lines, props, letters, borders, watermark or opaque backdrop. True alpha outside each separate kitten. Crisp silhouettes readable at 50 pixels. Preserve the reference character, do not redesign.
+
 ### 磨坊室内样板（内置 imagegen）
 
 mill-night-v1.jpg：1536 × 1024，不透明背景，原始 PNG 转 JPEG。

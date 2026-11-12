@@ -5,7 +5,7 @@ const $ = id => document.getElementById(id);
 const illustrations={};
 const illustrationStates={};
 const illustrationFiles={
-  cat:'assets/cat-gouache-v1.png',environment:'assets/woodland-atlas-v1.png',signs:'assets/signs-gouache-v1.png',
+  cat:'assets/cat-gouache-v1.png',catFeedback:'assets/cat-feedback-v1.png',environment:'assets/woodland-atlas-v1.png',signs:'assets/signs-gouache-v1.png',
   forest:'assets/forest-dawn-v1.jpg',harbor:'assets/harbor-afternoon-v1.jpg',
   harborEnvironment:'assets/harbor-atlas-v1.png',warehouse:'assets/harbor-warehouse-v1.png',
   rooftop:'assets/rooftop-moonlight-v1.jpg',rooftopEnvironment:'assets/rooftop-atlas-v1.png',rooftopLandmarks:'assets/rooftop-landmarks-v1.png',
@@ -15,7 +15,7 @@ const illustrationFiles={
 let illustrationLoading=false;
 function requiredIllustrations(){
   const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['rooftop','rooftopEnvironment','rooftopLandmarks','slidingEave']];
-  return ['cat','environment','signs',...(levelIndex===7?['mill','millEnvironment']:chapters[worldIndex()])];
+  return ['cat','catFeedback','environment','signs',...(levelIndex===7?['mill','millEnvironment']:chapters[worldIndex()])];
 }
 function updateIllustrationStatus(){
   const required=requiredIllustrations(),wasLoading=illustrationLoading;
@@ -261,6 +261,24 @@ let keys = new Set(), levelIndex=0, level, boards, fish, checkpoint=-1, deaths=0
 let state='menu', time=0, deathDelay=0, buffer=0, coyote=0, jumpHeld=false, accumulator=0, last=0;
 let particles=[], shake=0, landing=0, muted=false, audio=null, fakeTriggered=false;
 const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1};
+// Presentation follows the real movement; it never changes the collision body.
+const catMotion={stride:0,idle:0,turn:0,brake:0,dust:0,launch:0};
+function resetCatMotion(){Object.assign(catMotion,{stride:0,idle:0,turn:0,brake:0,dust:0,launch:0});}
+function updateCatMotion(dt,axis,previousVx,previousFace){
+  catMotion.turn=Math.max(0,catMotion.turn-dt);
+  catMotion.launch=Math.max(0,catMotion.launch-dt);
+  if(cat.face!==previousFace)catMotion.turn=.12;
+  const speed=Math.abs(cat.vx),braking=cat.ground&&Math.abs(previousVx)>45&&(!axis||axis*previousVx<0);
+  const target=braking?Math.min(1,Math.abs(previousVx)/180):0;
+  catMotion.brake+=(target-catMotion.brake)*(1-Math.exp(-dt*24));
+  if(cat.ground&&speed>12)catMotion.stride+=speed*dt/96;
+  catMotion.idle=cat.ground&&speed<12&&!axis?catMotion.idle+dt:0;
+  catMotion.dust=Math.max(0,catMotion.dust-dt);
+  if(braking&&catMotion.dust===0){
+    particles.push({x:cat.x+cat.w/2,y:cat.y+cat.h,vx:-previousVx*.08,vy:-12,life:.18,color:'#c9b791'});
+    catMotion.dust=.07;
+  }
+}
 let cleared={};
 let available=new Set([0,3,6]);
 let continueLevel=0,selectedWorld=0;
@@ -379,7 +397,7 @@ function spawn(){
   Object.assign(cat,{x:p.x+25,y:p.y-cat.h,vx:0,vy:0,ground:true,face:1});
   cat.support=checkpoint<0?0:checkpoint;
   for(const b of boards)b.crack=-1;
-  clearInput();coyote=.1;deathDelay=0;landing=0;lastFallWasBridge=false;
+  clearInput();resetCatMotion();coyote=.1;deathDelay=0;landing=0;lastFallWasBridge=false;
   camera.groundY=p.y;camera.snap=true;updateCamera(0);
 }
 function loadLevel(i,resume=false){
@@ -456,15 +474,16 @@ function showSaveNote(){
 function overlap(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 function update(dt){
   if(state!=='play'||illustrationLoading)return;
-  elapsed+=dt;time+=dt;shake=Math.max(0,shake-dt*22);landing=Math.max(0,landing-dt*4);
+  elapsed+=dt;time+=dt;shake=Math.max(0,shake-dt*22);landing=Math.max(0,landing-dt*.6);
   for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=260*dt;p.life-=dt;}particles=particles.filter(p=>p.life>0);
   if(deathDelay>0){deathDelay-=dt;if(deathDelay<=0)spawn();return;}
   buffer=Math.max(0,buffer-dt);coyote=cat.ground?.10:Math.max(0,coyote-dt);
   const axis=Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA'));
   const surface=cat.ground?boards[cat.support]:null;
+  const previousVx=cat.vx,previousFace=cat.face;
   const target=axis*240, acceleration=cat.ground?(surface?.ice?(axis?650:180):2400):1800;
   cat.vx+=Math.max(-acceleration*dt,Math.min(acceleration*dt,target-cat.vx));if(axis)cat.face=axis;
-  if(buffer>0&&coyote>0){cat.vy=surface?.spring?-700:-530;cat.ground=false;coyote=0;buffer=0;burst(cat.x+12,cat.y+30,surface?.spring?'#83c7d1':'#ddd2b1',7);sound(surface?.spring?720:540,.09);}
+  if(buffer>0&&coyote>0){cat.vy=surface?.spring?-700:-530;cat.ground=false;catMotion.launch=.12;coyote=0;buffer=0;burst(cat.x+12,cat.y+30,surface?.spring?'#83c7d1':'#ddd2b1',7);sound(surface?.spring?720:540,.09);}
   if(!jumpHeld&&cat.vy<-210)cat.vy=-210;
   cat.vy+=1200*dt;
   const wind=level.winds.find(z=>cat.x>z.from&&cat.x<z.to);
@@ -478,7 +497,7 @@ function update(dt){
       if(b.spring)teach('spring','在蓝色软垫上按住跳跃，可以跳得更高。');
       if(b.ice)teach('ice','薄霜会滑。轻按反方向，可以更快停下。');
       if(b.belt)teach('belt',levelIndex===7?'浅色帆布运粮带会带你走，跳到木台就能停稳。':'箭头屋瓦会推着你走，起跳就能离开它。');
-      if(fallSpeed>150){landing=.16;burst(cat.x+12,b.y,'#e4d5b6',8);sound(180,.045,'triangle');}
+      if(fallSpeed>150){landing=Math.min(.075,fallSpeed/800*.075);burst(cat.x+12,b.y,'#e4d5b6',8);sound(180,.045,'triangle');}
       if(b.source===0&&b.local===1)teach('jump','跳得不错。前面的路灯可以歇脚。');
       if(b.fragile&&b.crack<0){
         b.crack=0;lastFallWasBridge=true;sound(95,.12,'triangle');
@@ -492,6 +511,7 @@ function update(dt){
       if(i===exitIndex()&&cat.x>(level.finishX??b.x+24)){finish();return;}
     }
   }
+  updateCatMotion(dt,axis,previousVx,previousFace);
   const hurt={x:cat.x+4,y:cat.y+4,w:cat.w-8,h:cat.h-5};
   for(const [x,y,w] of level.thorns)if(overlap(hurt,{x:x+3,y:y+3,w:w-6,h:11})){die('荆棘扎脚，跳过去就好。');return;}
   for(const s of level.saws){const sx=s.x+Math.sin(time*1.8)*s.range;const nx=Math.max(hurt.x,Math.min(sx,hurt.x+hurt.w)),ny=Math.max(hurt.y,Math.min(s.y,hurt.y+hurt.h));if(Math.hypot(sx-nx,s.y-ny)<s.r){die('等飞果离开，再起跳。');return;}}
@@ -660,6 +680,9 @@ function drawMillBoard(b){
   ctx.drawImage(image,sourceX,210,120,170,b.x,y,cap,height);
   ctx.drawImage(image,sourceX+120,210,272,170,b.x+cap,y,b.w-cap*2,height);
   ctx.drawImage(image,sourceX+392,210,120,170,b.x+b.w-cap,y,cap,height);
+  ctx.save();ctx.globalAlpha=.26;
+  line(ctx,[[b.x+4,b.y+.5],[b.x+b.w-4,b.y+.5]],b.belt?'#fff1cd':'#f3d4a5',.8);
+  ctx.restore();
   if(b.belt){
     const left=b.x+cap,right=b.x+b.w-cap,tile=54.4;
     const offset=((time*b.belt)%tile+tile)%tile;
@@ -676,6 +699,7 @@ function drawMillBoard(b){
 function drawMillLandmarks(){
   if(!illustrations.millEnvironment)return;
   const image=illustrations.millEnvironment;
+  ctx.save();ctx.globalAlpha=.66;
   for(const b of boards){
     if(b.x+b.w<camera.x-120||b.x>camera.x+camera.w+120)continue;
     // Trestles visibly carry every catwalk and conveyor down to the mill foundation.
@@ -691,7 +715,13 @@ function drawMillLandmarks(){
   for(const section of level.sections){
     const b=boards[section.board],x=b.x+b.w*.65;
     if(x<camera.x-180||x>camera.x+camera.w+180)continue;
-    if(section.kind==='hopper')ctx.drawImage(image,0,512,512,512,b.x+24,b.y-118,123,123);
+    // The grain hopper belongs to the lower background bay, below the playable deck.
+    if(section.kind==='hopper')ctx.drawImage(image,0,512,512,512,b.x+48,H-112,112,112);
+  }
+  ctx.restore();
+  for(const section of level.sections){
+    const b=boards[section.board],x=b.x+b.w*.65;
+    if(x<camera.x-180||x>camera.x+camera.w+180)continue;
     sceneLabel(section.name+' →',x,b.y-137,{center:true});
   }
   const end=boards[exitIndex()];
@@ -810,6 +840,42 @@ function drawLessonSigns(){
   sceneLabel('有裂纹…',641,340,{tone:'warning',center:true,important:true});
   sceneLabel('小路也能回家 →',635,510,{center:true,important:true});
 }
+function catPresentation(){
+  const speed=Math.abs(cat.vx),walking=cat.ground&&speed>20;
+  let sheet='cat',frame=0;
+  if(!cat.ground)frame=cat.vy<0?4:5;
+  else if(walking)frame=[1,2,3,2][Math.floor(catMotion.stride*4)%4];
+  if(cat.ground&&illustrations.catFeedback){
+    const idlePhase=catMotion.idle%6.4;
+    if(landing>.018){sheet='catFeedback';frame=4;}
+    else if(catMotion.brake>.18&&speed>14){sheet='catFeedback';frame=1;}
+    else if(catMotion.turn>.065){sheet='catFeedback';frame=2;}
+    else if(!walking&&catMotion.idle>1.8){
+      if(idlePhase>2.6&&idlePhase<2.76){sheet='catFeedback';frame=0;}
+      else if(idlePhase>4&&idlePhase<4.9){sheet='catFeedback';frame=3;}
+      else if(catMotion.idle>6.4){sheet='catFeedback';frame=5;}
+    }
+  }
+  const stretch=!cat.ground?(catMotion.launch/.12)*.025:0;
+  const breath=cat.ground&&!walking?Math.sin(catMotion.idle*2.4)*.006:0;
+  const turn=catMotion.turn>0?Math.sin(catMotion.turn/.12*Math.PI)*.09:0;
+  return {sheet,frame,foot:sheet==='cat'?[451,449,434,448,431,447][frame]:[451,451,450,445,443,444][frame],pivot:295,
+    sx:1+landing-stretch-turn,sy:1-landing+stretch+breath,
+    lean:cat.ground?cat.vx/240*(catMotion.brake>.18?-.025:.018):0,
+    bounce:walking?Math.abs(Math.sin(catMotion.stride*Math.PI*2))*.35:0};
+}
+function catContactSurface(){
+  const center=cat.x+cat.w/2,bottom=cat.y+cat.h;
+  return boards.filter(b=>center>b.x+2&&center<b.x+b.w-2&&b.y>=bottom-.5&&b.y-bottom<80&&b.crack<=crumbleDelay(b))
+    .sort((a,b)=>a.y-b.y)[0];
+}
+function drawCatContact(){
+  if(deathDelay>0)return;
+  const surface=catContactSurface();if(!surface)return;
+  const proximity=1-Math.max(0,surface.y-cat.y-cat.h)/80;
+  ctx.save();ctx.globalAlpha=.19*proximity;
+  oval(ctx,cat.x+cat.w/2+2,surface.y+1,6+proximity*5,1.4,'#42372e');ctx.restore();
+}
 function drawCat(){
   if(deathDelay>0)return;
   // Rounded kitten silhouette. Artwork is independent of the 23 x 30 hitbox.
@@ -817,13 +883,10 @@ function drawCat(){
   const bounce=walking?Math.abs(cycle)*.65:cat.ground?Math.sin(time*2.5)*.22:0;
   const stretch=!cat.ground&&cat.vy<0?.035:0;
   if(illustrations.cat){
-    let frame=0;
-    if(!cat.ground)frame=cat.vy<0?4:5;
-    else if(walking)frame=[1,2,3,2][Math.floor(time*9)%4];
-    const foot=[451,449,434,448,431,447][frame],scale=54/512;
+    const pose=catPresentation(),frame=pose.frame,scale=54/512;
     ctx.save();ctx.translate(cat.x+cat.w/2,cat.y+cat.h);
-    ctx.scale(cat.face*(1+landing-stretch),1-landing+stretch);
-    ctx.drawImage(illustrations.cat,(frame%3)*512,Math.floor(frame/3)*512,512,512,-295*scale,-foot*scale-bounce,54,54);
+    ctx.rotate(pose.lean);ctx.scale(cat.face*pose.sx,pose.sy);
+    ctx.drawImage(illustrations[pose.sheet],(frame%3)*512,Math.floor(frame/3)*512,512,512,-pose.pivot*scale,-pose.foot*scale-pose.bounce,54,54);
     ctx.restore();return;
   }
   ctx.save();ctx.translate(cat.x+11.5,cat.y+30);
@@ -1094,6 +1157,7 @@ function draw(dt=1/60){
     if(illustrations.environment)ctx.drawImage(illustrations.environment,1124,693,310,150,f.x-12,y-5.8,24,11.6);
     else{oval(ctx,f.x,y,9,4,'#c2954e');ctx.fillStyle='#c2954e';ctx.beginPath();ctx.moveTo(f.x-7,y);ctx.lineTo(f.x-13,y-5);ctx.lineTo(f.x-13,y+5);ctx.fill();oval(ctx,f.x+5,y-1,1,1,'#66533c');}
   }
+  drawCatContact();
   drawSceneLabels(dt);
   drawCat();
   for(const p of particles){ctx.globalAlpha=Math.max(0,p.life*1.5);oval(ctx,p.x,p.y,2,1.5,p.color);}ctx.globalAlpha=1;
