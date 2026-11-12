@@ -10,12 +10,12 @@ const illustrationFiles={
   harborEnvironment:'assets/harbor-atlas-v1.png',warehouse:'assets/harbor-warehouse-v1.png',
   rooftop:'assets/rooftop-moonlight-v1.jpg',rooftopEnvironment:'assets/rooftop-atlas-v1.png',rooftopLandmarks:'assets/rooftop-landmarks-v1.png',
   slidingEave:'assets/rooftop-sliding-eave-v1.png',
-  mill:'assets/mill-night-v1.jpg',millEnvironment:'assets/mill-atlas-v1.png'
+  mill:'assets/mill-night-v1.jpg',millEnvironment:'assets/mill-atlas-v1.png',millBell:'assets/mill-bell-v1.png'
 };
 let illustrationLoading=false;
 function requiredIllustrations(){
   const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['rooftop','rooftopEnvironment','rooftopLandmarks','slidingEave']];
-  return ['cat','catFeedback','environment','signs',...(levelIndex===7?['mill','millEnvironment']:chapters[worldIndex()])];
+  return ['cat','catFeedback','environment','signs',...(levelIndex===7?['mill','millEnvironment','millBell']:chapters[worldIndex()])];
 }
 function updateIllustrationStatus(){
   const required=requiredIllustrations(),wasLoading=illustrationLoading;
@@ -26,6 +26,7 @@ function updateIllustrationStatus(){
   if(loadingOverlay)loadingOverlay.hidden=!illustrationLoading||state==='menu';
   $('assetStatus').hidden=!illustrationLoading&&!failed;
   $('assetStatus').textContent=illustrationLoading?'正在翻开绘本…':failed?'部分插画未载入，仍可继续散步。':'';
+  syncAudio();
   if(wasLoading&&!illustrationLoading)clearInput();
 }
 function loadIllustrations(){
@@ -260,6 +261,8 @@ function world(){return WORLDS[worldIndex()];}
 let keys = new Set(), levelIndex=0, level, boards, fish, checkpoint=-1, deaths=0, elapsed=0;
 let state='menu', time=0, deathDelay=0, buffer=0, coyote=0, jumpHeld=false, accumulator=0, last=0;
 let particles=[], shake=0, landing=0, muted=false, audio=null, fakeTriggered=false;
+const soundscape=typeof WalkAudio==='function'?new WalkAudio():null;
+const millMoment={warned:false,rung:false,age:0};
 const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1};
 // Presentation follows the real movement; it never changes the collision body.
 const catMotion={stride:0,idle:0,turn:0,brake:0,dust:0,launch:0};
@@ -367,13 +370,35 @@ function save(){
   }catch{storageAvailable=false;}
 }
 function sound(freq=440,duration=.1,type='sine'){
+  if(soundscape){soundscape.voice({frequency:freq,end:freq*.8,duration,type,gain:.03});return;}
   if(muted||!audio)return;
   const o=audio.createOscillator(),g=audio.createGain();
   o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(freq*.65,audio.currentTime+duration);
   g.gain.setValueAtTime(.055,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);
   o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+duration);
 }
-function unlockAudio(){try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});}catch{}}
+function syncAudio(){
+  if(!soundscape)return;
+  const visible=!document.hidden&&$('selectPanel').hidden,ready=!illustrationLoading;
+  soundscape.setMuted(muted);
+  soundscape.setScene(levelIndex===7?'mill':['forest','harbor','roof'][worldIndex()],state==='play'&&visible&&ready,
+    ['play','clear','complete'].includes(state)&&visible&&ready);
+}
+function unlockAudio(){
+  if(soundscape){syncAudio();soundscape.unlock();return;}
+  try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});}catch{}
+}
+function cue(name){if(soundscape)soundscape.cue(name);else sound(name==='fall'?130:650,.12);}
+function surfaceMaterial(b){return b?.ice?'ice':b?.spring?'soft':b?.belt?'canvas':levelIndex===7||worldIndex()===1||b?.fragile?'wood':worldIndex()===2?'tile':'grass';}
+function updateMillMoment(dt){
+  if(levelIndex!==7)return;
+  if(millMoment.rung){millMoment.age+=dt;return;}
+  if(cat.x>boards[2].x+75)millMoment.warned=true;
+  if(millMoment.warned&&cat.ground&&cat.support===3){
+    millMoment.rung=true;millMoment.age=0;cue('bell');
+    burst(boards[2].x+100,H-100,'#eee0b9',14);
+  }
+}
 let noticeTimer;
 function notice(text){$('notice').textContent=text;$('notice').classList.add('visible');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').classList.remove('visible'),Math.max(3200,Math.min(6500,text.length*120)));}
 function panel(title,description,button,overline='猫的第九次散步'){
@@ -402,6 +427,7 @@ function spawn(){
 }
 function loadLevel(i,resume=false){
   levelIndex=i;level=LEVELS[i];checkpoint=-1;time=0;fakeTriggered=false;lessonSeen=new Set();
+  Object.assign(millMoment,{warned:false,rung:false,age:0});
   sceneLabelOpacity.clear();
   W=level.width;
   $('app').setAttribute('data-world',world().scene);
@@ -425,7 +451,7 @@ function start(i=0,resume=false){
 function burst(x,y,color,count=12){for(let i=0;i<count;i++)particles.push({x,y,vx:(Math.random()-.5)*150,vy:-Math.random()*120,life:.4+Math.random()*.3,color});}
 function die(reason='失足也没关系，马上再来。'){
   if(state!=='play'||deathDelay>0)return;
-  deaths++;deathDelay=.42;shake=5;burst(cat.x+12,cat.y+15,'#ca7957',20);sound(130,.18,'triangle');hud();notice(reason);save();
+  deaths++;deathDelay=.42;shake=5;burst(cat.x+12,cat.y+15,'#ca7957',20);cue('fall');hud();notice(reason);save();
 }
 function finish(){
   if(state!=='play')return;
@@ -440,7 +466,7 @@ function finish(){
   cleared[levelIndex]=true;
   if(levelIndex%3<2)available.add(levelIndex+1);
   continueLevel=Math.min(LEVELS.length-1,levelIndex+1);
-  save();clearInput();sound(880,.3);
+  save();clearInput();syncAudio();cue('finish');
   panel(state==='complete'?'到家了，猫猫。':levelIndex%3===2?world().name+'，走过了。':'这一页，走过了。',
     '每一步，都离家更近了。',
     state==='complete'?'再走一遍 →':'下一关：'+LEVELS[levelIndex+1].name+' →',state==='complete'?'散步结束 / 三章回家路':(worldIndex()+1)+'-'+(levelIndex%3+1)+' COMPLETE');
@@ -463,8 +489,9 @@ function pause(){
     state='pause';clearInput();save();panel('歇一会儿。','休息好了，再继续向前走。','继续散步 →');
     showSaveNote();
   }else if(state==='pause'){
-    state='play';clearInput();$('overlay').hidden=true;canvas.focus({preventScroll:true});
+    state='play';clearInput();$('overlay').hidden=true;canvas.focus({preventScroll:true});unlockAudio();
   }
+  syncAudio();
 }
 function showSaveNote(){
   $('saveNote').textContent=checkpoint<0?'重新打开可从本关起点继续':'重新打开可从第 '+level.checks.filter(i=>i<=checkpoint).length+' 盏路灯继续';
@@ -483,7 +510,7 @@ function update(dt){
   const previousVx=cat.vx,previousFace=cat.face;
   const target=axis*240, acceleration=cat.ground?(surface?.ice?(axis?650:180):2400):1800;
   cat.vx+=Math.max(-acceleration*dt,Math.min(acceleration*dt,target-cat.vx));if(axis)cat.face=axis;
-  if(buffer>0&&coyote>0){cat.vy=surface?.spring?-700:-530;cat.ground=false;catMotion.launch=.12;coyote=0;buffer=0;burst(cat.x+12,cat.y+30,surface?.spring?'#83c7d1':'#ddd2b1',7);sound(surface?.spring?720:540,.09);}
+  if(buffer>0&&coyote>0){cat.vy=surface?.spring?-700:-530;cat.ground=false;catMotion.launch=.12;coyote=0;buffer=0;burst(cat.x+12,cat.y+30,surface?.spring?'#83c7d1':'#ddd2b1',7);cue(surface?.spring?'spring':'jump');}
   if(!jumpHeld&&cat.vy<-210)cat.vy=-210;
   cat.vy+=1200*dt;
   const wind=level.winds.find(z=>cat.x>z.from&&cat.x<z.to);
@@ -497,14 +524,14 @@ function update(dt){
       if(b.spring)teach('spring','在蓝色软垫上按住跳跃，可以跳得更高。');
       if(b.ice)teach('ice','薄霜会滑。轻按反方向，可以更快停下。');
       if(b.belt)teach('belt',levelIndex===7?'浅色帆布运粮带会带你走，跳到木台就能停稳。':'箭头屋瓦会推着你走，起跳就能离开它。');
-      if(fallSpeed>150){landing=Math.min(.075,fallSpeed/800*.075);burst(cat.x+12,b.y,'#e4d5b6',8);sound(180,.045,'triangle');}
+      if(fallSpeed>150){landing=Math.min(.075,fallSpeed/800*.075);burst(cat.x+12,b.y,'#e4d5b6',8);if(soundscape)soundscape.surface(surfaceMaterial(b),Math.min(1.5,fallSpeed/450));else sound(180,.045,'triangle');}
       if(b.source===0&&b.local===1)teach('jump','跳得不错。前面的路灯可以歇脚。');
       if(b.fragile&&b.crack<0){
-        b.crack=0;lastFallWasBridge=true;sound(95,.12,'triangle');
+        b.crack=0;lastFallWasBridge=true;cue('crack');
         if(b.source===0)teach('bridge','咔嚓……木板在摇晃，往右跳！');
         else notice('咔嚓……这块木板要塌了！');
       }
-      if(level.checks.includes(i)&&(checkpoint<0||b.x>boards[checkpoint].x)){checkpoint=i;sound(740,.2);burst(b.x+35,b.y-35,'#efc97a',20);
+      if(level.checks.includes(i)&&(checkpoint<0||b.x>boards[checkpoint].x)){checkpoint=i;cue('lamp');burst(b.x+35,b.y-35,'#efc97a',20);
         if(b.source===0)teach('lamp','路灯已点亮。前面的裂纹板，别停太久。');
         else notice('路灯点亮，跌倒后从这里继续。');hud();save();}
       if(levelIndex===0&&i===level.rescue)teach('rescue','接住你了。从右边的小台阶回去就好。');
@@ -512,10 +539,16 @@ function update(dt){
     }
   }
   updateCatMotion(dt,axis,previousVx,previousFace);
+  updateMillMoment(dt);
+  const machine=levelIndex===7?boards.filter(b=>b.belt).reduce((nearest,b)=>{
+    const offset=b.x+b.w/2-cat.x,distance=Math.abs(offset);
+    return distance<nearest.distance?{distance,pan:offset/400}:nearest;
+  },{distance:Infinity,pan:0}):{distance:Infinity,pan:0};
+  soundscape?.walk(dt,cat.ground?Math.abs(cat.vx):0,surfaceMaterial(boards[cat.support]),machine);
   const hurt={x:cat.x+4,y:cat.y+4,w:cat.w-8,h:cat.h-5};
   for(const [x,y,w] of level.thorns)if(overlap(hurt,{x:x+3,y:y+3,w:w-6,h:11})){die('荆棘扎脚，跳过去就好。');return;}
   for(const s of level.saws){const sx=s.x+Math.sin(time*1.8)*s.range;const nx=Math.max(hurt.x,Math.min(sx,hurt.x+hurt.w)),ny=Math.max(hurt.y,Math.min(s.y,hurt.y+hurt.h));if(Math.hypot(sx-nx,s.y-ny)<s.r){die('等飞果离开，再起跳。');return;}}
-  for(const f of fish)if(!f.got&&Math.hypot(cat.x+12-f.x,cat.y+15-f.y)<25){f.got=true;rememberFish();save();sound(1050,.12);burst(f.x,f.y,'#c49243',10);hud();}
+  for(const f of fish)if(!f.got&&Math.hypot(cat.x+12-f.x,cat.y+15-f.y)<25){f.got=true;rememberFish();save();cue('fish');burst(f.x,f.y,'#c49243',10);hud();}
   const section=level.sections.findLast(s=>cat.x>=s.x);
   if(section&&section!==level.sections[0])teach('section-'+section.source,section.name+' · '+section.hint);
   if(cat.y>H+40)die(lastFallWasBridge?'裂纹板会塌。路灯已记住你，下次及时起跳。':'失足也没关系，马上再来。');
@@ -726,6 +759,24 @@ function drawMillLandmarks(){
   }
   const end=boards[exitIndex()];
   ctx.drawImage(image,1024,512,512,512,level.finishX-45,end.y-146,153,153);
+  drawMillBell();
+}
+function drawMillBell(){
+  const b=boards[3],x=b.x+b.w*.5,y=b.y-99;
+  if(x<camera.x-100||x>camera.x+camera.w+100)return;
+  const age=millMoment.age,swing=millMoment.rung?Math.sin(age*19)*Math.exp(-age*2.7)*.27:Math.sin(time*1.2)*.012;
+  line(ctx,[[x,y-55],[x,y-22]],'#9e825a',1.2);
+  ctx.save();ctx.translate(x,y-22);ctx.rotate(swing);
+  if(illustrations.millBell)ctx.drawImage(illustrations.millBell,470,60,600,900,-19,0,38,57);
+  else{oval(ctx,0,22,10,12,'#b99754');oval(ctx,0,32,13,3,'#d5b16c');}
+  ctx.restore();
+  if(!millMoment.rung)sceneLabel('嘘，铃铛在打盹…',b.x+10,y-32,{center:true});
+  else if(age<2.4)sceneLabel('叮——谁把磨坊叫醒了？',x,y-32,{center:true});
+  if(millMoment.rung&&age<1.2){
+    ctx.save();ctx.globalAlpha=(1-age/1.2)*.4;
+    for(const side of [-1,1])line(ctx,[[x+side*24,y],[x+side*30,y+8],[x+side*24,y+16]],'#f4d895',1);
+    ctx.restore();
+  }
 }
 function drawPaintedRoof(b){
   if(b.belt&&illustrations.slidingEave){drawSlidingEave(b);return;}
@@ -849,6 +900,7 @@ function catPresentation(){
     const idlePhase=catMotion.idle%6.4;
     if(landing>.018){sheet='catFeedback';frame=4;}
     else if(catMotion.brake>.18&&speed>14){sheet='catFeedback';frame=1;}
+    else if(levelIndex===7&&millMoment.rung&&millMoment.age<.5){sheet='catFeedback';frame=3;}
     else if(catMotion.turn>.065){sheet='catFeedback';frame=2;}
     else if(!walking&&catMotion.idle>1.8){
       if(idlePhase>2.6&&idlePhase<2.76){sheet='catFeedback';frame=0;}
@@ -1204,7 +1256,7 @@ function showLevels(chapter=worldIndex()){
     button.onclick=()=>{if(isLevelUnlocked(i))start(i,true);};
     $('levelGrid').appendChild(button);
   });
-  $('selectPanel').hidden=false;$('closeLevels').focus({preventScroll:true});
+  $('selectPanel').hidden=false;$('closeLevels').focus({preventScroll:true});syncAudio();
 }
 function down(code,repeat=false){
   if(illustrationLoading&&code!=='Escape')return;
@@ -1219,14 +1271,14 @@ function down(code,repeat=false){
 function up(code){keys.delete(code);if(['Space','ArrowUp','KeyW'].includes(code))jumpHeld=false;}
 window.addEventListener('keydown',e=>{if(e.target.tagName==='BUTTON'&&(e.code==='Space'||e.code==='Enter'))return;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();down(e.code,e.repeat);});
 window.addEventListener('keyup',e=>up(e.code));
-window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();});
+window.addEventListener('blur',()=>{clearInput();if(state==='play')pause();else soundscape?.setScene('forest',false,false);});
 window.addEventListener('orientationchange',()=>{clearInput();if(state==='play')pause();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='play')pause();});
-window.addEventListener('pagehide',()=>{clearInput();save();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='play')pause();syncAudio();});
+window.addEventListener('pagehide',()=>{clearInput();save();soundscape?.setScene('forest',false,false);});
 $('primary').onclick=next;$('secondary').onclick=()=>start(levelIndex);$('pause').onclick=()=>{if(!$('selectPanel').hidden)$('selectPanel').hidden=true;else pause();};
 $('levels').onclick=()=>showLevels();
 $('closeLevels').onclick=()=>{$('selectPanel').hidden=true;$('levels').focus({preventScroll:true});};
-$('sound').onclick=()=>{muted=!muted;unlockAudio();save();updateSound();};
+$('sound').onclick=()=>{muted=!muted;syncAudio();unlockAudio();save();updateSound();};
 function updateSound(){$('sound').textContent='声音：'+(muted?'关':'开');$('sound').setAttribute('aria-pressed',String(muted));}
 $('retry').onclick=()=>{if(state==='play')die('重新出发。');};
 function fullscreenLabel(){$('fullscreen').textContent=document.fullscreenElement||$('app').classList.contains('immersive')?'退出全屏 ↙':'全屏 ↗';}

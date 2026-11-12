@@ -8,6 +8,8 @@ types['/assets/rooftop-sliding-eave-v1.png']='image/png';
 types['/assets/mill-night-v1.jpg']='image/jpeg';
 types['/assets/mill-atlas-v1.png']='image/png';
 types['/assets/cat-feedback-v1.png']='image/png';
+types['/audio.js']='text/javascript; charset=utf-8';
+types['/assets/mill-bell-v1.png']='image/png';
 const lan=process.argv.includes('--lan'),port=Number(process.env.PORT||4173);
 const server=http.createServer((req,res)=>{
   let name=new URL(req.url,'http://localhost').pathname;

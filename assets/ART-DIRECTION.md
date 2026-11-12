@@ -18,6 +18,12 @@
 
 ## 实际生成提示词
 
+### 磨坊旧铜铃（内置 imagegen）
+
+mill-bell-v1.png：1536 × 1024，透明独立道具，旧铜铃、麻绳与木挂钉。仅 3-2 按需加载，动态摆动围绕绳端，图像裁切保留木钉与铃舌。事件提示沿用共用纸签，响铃时叠加短暂声纹。
+
+Use case: illustration-story. A single small old brass mill bell, isolated TRUE TRANSPARENT cutout production prop for a premium hand-painted 2D cat platformer. Gouache and colored pencil, weathered warm honey brass, subtle darker patina, charming slightly irregular bell silhouette, a tiny simple dark wooden hanging peg and a short flax rope loop on top, visible small clapper below the lip. Exact front elevation, no floor, no cast shadow, no scenery, no lettering. One complete bell centered in a landscape1536x1024 canvas, bell and rope occupy approximately x=520..1016 and y=150..870 with generous transparent padding. Match cozy old grain mill oak beams and warm amber lantern art, restrained tactile painterly detail, readable silhouette at 30 pixels tall. No shiny photorealism, no extra objects, no characters, no watermark. True alpha everywhere outside the bell and rope.
+
 ### 猫猫动作反馈扩展（内置 imagegen）
 
 cat-feedback-v1.png：1536 × 1024，透明 3 × 2 图集。以 cat-gouache-v1.png 为角色参考，补充眨眼、刹车、回望、抬头、落地、放松。逐帧脚底为 451、451、450、445、443、444 像素，绘制按脚底对齐真实碰撞面。跑步周期跟随水平速度；眨眼与抬头仅待机时出现；姿态反馈不改动物理碰撞和跳跃响应。

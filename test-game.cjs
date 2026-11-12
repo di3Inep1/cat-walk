@@ -1,6 +1,6 @@
 // Run the real game logic with a minimal DOM, without replacing its physics.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-function boot(stored={},withImages=false){
+function boot(stored={},withImages=false,withAudio=true){
 const pen=new Proxy({}, {get:(target,key)=>target[key]??(key==='measureText'?text=>({width:[...text].length*8}):()=>{})});
 const elements=new Map(),handlers=new Map(),windowHandlers=new Map();
 let elementSequence=0;
@@ -10,6 +10,7 @@ const selection={cleared:false},documentHandlers=new Map();
 const context=vm.createContext({document:{getElementById:element,createElement:type=>element(type+(++elementSequence)),querySelectorAll:()=>controls,addEventListener(type,fn){documentHandlers.set(type,fn)}},window:{addEventListener(type,fn){windowHandlers.set(type,fn)},getSelection:()=>({rangeCount:1,removeAllRanges(){selection.cleared=true}})},localStorage:{getItem:key=>stored[key]??null,setItem(key,value){stored[key]=value}},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},Math,console});
 const imageRequests=[];
 if(withImages)context.Image=class {set src(value){this.url=value;imageRequests.push(this)}};
+if(withAudio)vm.runInContext(fs.readFileSync('audio.js','utf8'),context);
 vm.runInContext(fs.readFileSync('game.js','utf8'),context);
 const run=code=>vm.runInContext(code,context);
 return {context,run,handlers,windowHandlers,documentHandlers,selection,stored,imageRequests};
@@ -273,7 +274,7 @@ for(let i=0;i<9;i++){
   for(const img of painted.imageRequests.slice(previous))img.onload();
   painted.run('draw();cat.vx=240;time=1;draw();cat.ground=false;cat.vy=-400;draw();cat.vy=200;draw()');
 }
-assert.equal(painted.imageRequests.length,14,'Each illustration is loaded once across all chapters');
+assert.equal(painted.imageRequests.length,15,'Each illustration is loaded once across all chapters');
 painted.run('const nightImages=[];ctx.drawImage=(...args)=>nightImages.push(args);camera.x=0;drawPaintedBackdrop();camera.x=W-camera.w;drawPaintedBackdrop()');
 assert.equal(painted.run('nightImages.length'),2,'A single moon panorama is drawn at either map edge');
 assert.equal(painted.run('nightImages.every(args=>Math.abs(args[3]/args[4]-1.5)<.001)'),true,'The moon retains its round shape');
@@ -294,14 +295,27 @@ const moonStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],c
 assert.equal(moonStart.imageRequests.length,8,'Direct rooftop entry loads shared art and its four images');
 assert.ok(moonStart.imageRequests.every(img=>!img.url.includes('forest')&&!img.url.includes('harbor')));
 const millStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],continueLevel:7})},true);
-assert.equal(millStart.imageRequests.length,6,'The mill loads only shared art and two indoor assets');
+assert.equal(millStart.imageRequests.length,7,'The mill loads only shared art and its three indoor assets');
 assert.ok(millStart.imageRequests.every(img=>!img.url.includes('rooftop')&&!img.url.includes('harbor')));
 for(const img of millStart.imageRequests)img.onload();
 millStart.run('next();checkpoint=6;spawn();const startMillX=cat.x;update(STEP)');
 assert.ok(millStart.run('cat.x<startMillX'),'The return conveyor carries a standing cat left');
 millStart.run('cat.ground=false;cat.y-=90;const jumpMillX=cat.x;update(STEP)');
 assert.equal(millStart.run('cat.x'),millStart.run('jumpMillX'),'A jump leaves the return conveyor');
-const oldPage=boot({},true),oldLookup=oldPage.context.document.getElementById;
+const oldPage=boot({},true,false),oldLookup=oldPage.context.document.getElementById;
+const audioLifecycle=boot();
+audioLifecycle.run("start(7);state='clear';syncAudio()");
+assert.equal(audioLifecycle.run('soundscape.effectsAllowed'),true,'The result screen can play its finish cue');
+audioLifecycle.context.document.hidden=true;
+audioLifecycle.documentHandlers.get('visibilitychange')();
+assert.equal(audioLifecycle.run('soundscape.effectsAllowed'),false,'Backgrounding also silences a result-screen cue');
+audioLifecycle.context.document.hidden=false;
+audioLifecycle.run('start(7);showLevels()');
+assert.equal(audioLifecycle.run('soundscape.active||soundscape.effectsAllowed'),false,'The chapter picker is quiet');
+audioLifecycle.run("$('selectPanel').hidden=true;pause()");
+assert.equal(audioLifecycle.run('soundscape.active'),true,'A gesture resumes the mill soundscape');
+audioLifecycle.windowHandlers.get('pagehide')();
+assert.equal(audioLifecycle.run('soundscape.active||soundscape.effectsAllowed'),false,'Leaving the page stops every sound bus');
 // Animation and grounding must describe the real body without moving it.
 const feedback=boot({},true);
 for(const img of feedback.imageRequests)img.onload();
@@ -323,7 +337,24 @@ feedback.run('cat.x=boards[2].x+boards[2].w+4');
 assert.equal(feedback.run('catContactSurface()'),undefined,'A gap cannot cast a false landing shadow');
 feedback.run('checkpoint=2;spawn();boards[2].crack=2');
 assert.equal(feedback.run('catContactSurface()'),undefined,'A vanished bridge cannot cast a landing shadow');
-feedback.run('start(7);const millDraws=[];ctx.drawImage=(...args)=>millDraws.push({args,alpha:ctx.globalAlpha});drawMillLandmarks()');
+feedback.run('start(7);checkpoint=2;spawn();cat.x=boards[2].x+100;const momentStartX=cat.x;update(STEP)');
+assert.equal(feedback.run('millMoment.warned'),true,'The bell has an approach cue before the first conveyor');
+assert.equal(feedback.run('millMoment.rung'),false);
+feedback.run('checkpoint=3;spawn();update(STEP)');
+assert.equal(feedback.run('millMoment.rung'),true);
+assert.equal(feedback.run('deaths'),0,'The bell is a harmless surprise');
+const momentAge=feedback.run('millMoment.age');
+feedback.run('pause();update(1)');
+assert.equal(feedback.run('millMoment.age'),momentAge,'Pause freezes the bell animation');
+feedback.run('pause();spawn();update(STEP)');
+assert.ok(feedback.run('millMoment.rung&&millMoment.age>0'),'Respawning does not repeat the bell surprise');
+feedback.run('start(7)');
+assert.equal(feedback.run('millMoment.rung'),false,'A deliberate restart can replay the moment');
+feedback.run('camera.w=370;camera.h=277.5;camera.cssWidth=352;checkpoint=2;spawn();cat.x=boards[2].x+150;camera.snap=true;updateCamera(0);sceneLabels=[];const bellText=[];ctx.fillText=(text,x,y)=>bellText.push({text,alpha:ctx.globalAlpha});drawMillBell();drawSceneLabels()');
+assert.ok(feedback.run('bellText.find(item=>item.text.includes("打盹")).alpha>.9'),'The approach cue is fully readable in a phone viewport');
+feedback.run('checkpoint=3;spawn();cat.x=boards[3].x+70;millMoment.rung=true;millMoment.age=.25;camera.snap=true;updateCamera(0);sceneLabels=[];drawMillBell();drawSceneLabels()');
+assert.ok(feedback.run('bellText.find(item=>item.text.includes("叫醒")).alpha>.9'),'The payoff stays inside the phone viewport too');
+feedback.run('start(7);checkpoint=2;spawn();const millDraws=[];ctx.drawImage=(...args)=>millDraws.push({args,alpha:ctx.globalAlpha});drawMillLandmarks()');
 const hopperDraw=feedback.run('millDraws.find(d=>d.args[1]===0&&d.args[2]===512)');
 assert.ok(hopperDraw.args[6]>feedback.run('boards[2].y')+25,'The decorative hopper remains below the playable deck');
 assert.ok(hopperDraw.alpha<.7,'Lower machinery belongs to the quieter background');
