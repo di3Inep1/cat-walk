@@ -274,7 +274,7 @@ for(let i=0;i<9;i++){
   for(const img of painted.imageRequests.slice(previous))img.onload();
   painted.run('draw();cat.vx=240;time=1;draw();cat.ground=false;cat.vy=-400;draw();cat.vy=200;draw()');
 }
-assert.equal(painted.imageRequests.length,13,'Each illustration is loaded once across all chapters');
+assert.equal(painted.imageRequests.length,15,'Each illustration is loaded once across all chapters');
 painted.run('const nightImages=[];ctx.drawImage=(...args)=>nightImages.push(args);camera.x=0;drawPaintedBackdrop();camera.x=W-camera.w;drawPaintedBackdrop()');
 assert.equal(painted.run('nightImages.length'),2,'The exterior uses one panorama at either map edge');
 assert.equal(painted.run('nightImages.every(args=>Math.abs(args[3]/args[4]-1.5)<.001)'),true,'The painted exterior retains its proportions');

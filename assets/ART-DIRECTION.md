@@ -18,6 +18,16 @@
 
 ## 实际生成提示词
 
+### 补齐红果、雨棚与风向标（内置 imagegen）
+
+forest-props-v1.png：1536 × 1024，透明两栏图集。左栏为麻绳悬挂的红苹果，右栏为开放式木雨棚。红果果身中心按源像素 (382,805) 对齐原碰撞圆，果身宽 330 像素按直径缩放；麻绳单独裁切延展到原悬挂点。雨棚开口透明，柱脚按源 y=985 对齐平台。仅在使用红果或雨棚的森林关卡加载，首关不额外加载。
+
+Use case: illustration-story. TRUE TRANSPARENT production prop atlas for a polished hand-painted woodland cat platformer. Landscape1536x1024 exactly TWO columns, each768x1024. Gouache watercolor and colored-pencil edges, soft warm morning forest light, worn oak, moss green, earthy terracotta and muted apple red. LEFT COLUMN: one ripe RED APPLE hanging from a thin twisted natural flax cord. Apple round body centered at x384,y740, radius approximately160 pixels, fully visible with one short brown stem and two small olive green leaves above. Gentle painted highlights, soft warm shadow, tactile skin and clear round silhouette, no face. Cord vertical from x384,y70 to stem near y550, constant slim natural twisted fiber, transparent around cord. Entire apple and leaves contained x170..600 and y480..930. RIGHT COLUMN: one whole OPEN woodland RAIN SHELTER, exact front elevation, rustic weathered oak posts at two far sides, steep terracotta shingle roof with a little moss and subtle leaf litter. NO walls, NO windows, genuinely TRANSPARENT spacious opening between posts so the forest shows through. No floor or platform, no furniture, no signs. Whole shelter occupies x810..1495 and y360..980, roof peak y360, eaves y520, post bases at y980. Wide enough for a kitten to rest below, charming asymmetrical natural craft, delicate wood grain and joinery, full silhouette visible. No other objects outside the two columns, no lettering, no watermark. True alpha background outside shapes and through shelter opening.
+
+harbor-windsock-v1.png：1536 × 1024，透明条纹布风筒。木挂件、黄铜环、绳扣、亚麻缝线随物体一并绘制，挂点固定在吊架上端，布筒小幅随风摆动。只在用到风向标的码头关卡加载。
+
+Use case: illustration-story. One isolated nautical WINDSOCK as a TRUE TRANSPARENT production prop for a premium hand-painted harbor cat platformer. Landscape1536x1024, generous transparent padding. A soft tapered linen windsock extends RIGHT from a small weathered wooden mounting peg and brass hoop at LEFT. Body made of muted dusty terracotta and warm ivory alternating fabric bands, subtle stitched seams and watercolor creases, cloth billows gently into a clear rightward horizontal silhouette. Small thin rope attachments at hoop, no tall pole, no base or scenery. Mounting peg near x250,y440; fabric spans x360..1320,y320..600, narrow open tail at far right. Whole object centered within x180..1360,y280..650. Gouache and colored pencil tactile storybook art, matches weathered oak harbor crane and pale turquoise water in warm afternoon light. No sharp vector shapes, no black outlines, no modern glossy nylon, no letters, no arrows, no watermark. True alpha throughout empty space.
+
 ### 第三章室外衔接（内置 imagegen）
 
 mill-approach-v1.jpg：1536 × 1024，不透明磨坊霜夜远景，原始 PNG 转为 JPEG。3-1 与 3-3 共用；3-3 中段裁切叠加磨坊室内背景，空间边界固定在世界坐标，图片保持原比例。

@@ -11,13 +11,17 @@ const illustrationFiles={
   rooftop:'assets/rooftop-moonlight-v1.jpg',rooftopEnvironment:'assets/rooftop-atlas-v1.png',rooftopLandmarks:'assets/rooftop-landmarks-v1.png',
   slidingEave:'assets/rooftop-sliding-eave-v1.png',
   mill:'assets/mill-night-v1.jpg',millEnvironment:'assets/mill-atlas-v1.png',millBell:'assets/mill-bell-v1.png',
-  millApproach:'assets/mill-approach-v1.jpg',millExterior:'assets/mill-exterior-v1.png'
+  millApproach:'assets/mill-approach-v1.jpg',millExterior:'assets/mill-exterior-v1.png',
+  forestProps:'assets/forest-props-v1.png',windsock:'assets/harbor-windsock-v1.png'
 };
 let illustrationLoading=false;
 function requiredIllustrations(){
   const chapters=[['forest'],['harbor','harborEnvironment','warehouse'],['millApproach','millExterior']];
   const routeArt=levelIndex===7?['mill','millEnvironment','millBell']:levelIndex===8?['millApproach','millExterior','mill','millEnvironment']:chapters[worldIndex()];
-  return ['cat','catFeedback','environment','signs',...routeArt];
+  const extras=[];
+  if(worldIndex()===0&&(level.saws.length||level.sections.some(s=>s.kind==='shed')))extras.push('forestProps');
+  if(worldIndex()===1&&level.sections.some(s=>s.kind==='windmill'))extras.push('windsock');
+  return ['cat','catFeedback','environment','signs',...routeArt,...extras];
 }
 function updateIllustrationStatus(){
   const required=requiredIllustrations(),wasLoading=illustrationLoading;
@@ -553,7 +557,7 @@ function update(dt){
   soundscape?.walk(dt,cat.ground?Math.abs(cat.vx):0,surfaceMaterial(boards[cat.support]),machine);
   const hurt={x:cat.x+4,y:cat.y+4,w:cat.w-8,h:cat.h-5};
   for(const [x,y,w] of level.thorns)if(overlap(hurt,{x:x+3,y:y+3,w:w-6,h:11})){die('荆棘扎脚，跳过去就好。');return;}
-  for(const s of level.saws){const sx=s.x+Math.sin(time*1.8)*s.range;const nx=Math.max(hurt.x,Math.min(sx,hurt.x+hurt.w)),ny=Math.max(hurt.y,Math.min(s.y,hurt.y+hurt.h));if(Math.hypot(sx-nx,s.y-ny)<s.r){die('等飞果离开，再起跳。');return;}}
+  for(const s of level.saws){const sx=swingFruitPosition(s).x;const nx=Math.max(hurt.x,Math.min(sx,hurt.x+hurt.w)),ny=Math.max(hurt.y,Math.min(s.y,hurt.y+hurt.h));if(Math.hypot(sx-nx,s.y-ny)<s.r){die('等飞果离开，再起跳。');return;}}
   for(const f of fish)if(!f.got&&Math.hypot(cat.x+12-f.x,cat.y+15-f.y)<25){f.got=true;rememberFish();save();cue('fish');burst(f.x,f.y,'#c49243',10);hud();}
   const section=level.sections.findLast(s=>cat.x>=s.x);
   if(section&&section!==level.sections[0])teach('section-'+section.source,section.name+' · '+section.hint);
@@ -1086,6 +1090,29 @@ function drawHarborLandmarks(){
   ctx.lineTo(towerX-330,10);ctx.lineTo(towerX-330,136);ctx.closePath();ctx.fill();ctx.globalAlpha=1;
   for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])sceneLabel(label,x,y,{center:true,important:true});
 }
+function drawPaintedWindsock(x,y){
+  const direction=Math.sign(level.winds[0]?.speed||1);
+  ctx.save();ctx.translate(x,y);ctx.scale(direction,1+Math.sin(time*2)*.025);ctx.rotate(Math.sin(time*2)*.025);
+  ctx.drawImage(illustrations.windsock,90,335,1380,400,-5.5,-12.925,75.9,22);ctx.restore();
+}
+function drawPaintedForestShelter(x,y){
+  const scale=.3;
+  ctx.drawImage(illustrations.forestProps,700,280,836,744,x-408*scale,y-705*scale,836*scale,744*scale);
+}
+function swingFruitPosition(s){return {x:s.x+Math.sin(time*1.8)*s.range,y:s.y};}
+function drawSwingFruit(s){
+  const {x,y}=swingFruitPosition(s),image=illustrations.forestProps;
+  if(!image){
+    line(ctx,[[s.anchor,0],[x,y]],'#8d8b72',1);oval(ctx,x,y,s.r,s.r,'#b85d4d');
+    line(ctx,[[x-3,y-6],[x+1,y-13],[x+7,y-12]],'#718556',2);return;
+  }
+  const scale=2*s.r/330,dx=x-s.anchor,dy=y-s.r-2,angle=Math.atan2(dx,dy);
+  ctx.save();ctx.translate(s.anchor,0);ctx.rotate(-angle);
+  ctx.drawImage(image,365,70,38,370,-1.3,0,2.6,Math.hypot(dx,dy));ctx.restore();
+  ctx.save();ctx.translate(x,y);ctx.rotate(-angle*.4);
+  // The fruit body shares the collision center; its stem and leaves are decorative.
+  ctx.drawImage(image,175,530,410,450,-207*scale,-275*scale,410*scale,450*scale);ctx.restore();
+}
 function drawPaintedHarborObject(kind,x,y,destination=false){
   const image=illustrations.harborEnvironment;
   if(kind==='shed'){
@@ -1098,10 +1125,13 @@ function drawPaintedHarborObject(kind,x,y,destination=false){
     const scale=.36;
     ctx.drawImage(image,512,480,512,530,x-108*scale,y-512*scale,512*scale,530*scale);
     if(kind==='windmill'){
+      if(illustrations.windsock)drawPaintedWindsock(x+8,y-180);
+      else{
       const wave=Math.sin(time*2)*3;
       ctx.fillStyle='#e3c7a0';ctx.strokeStyle='#7e7159';ctx.lineWidth=1;
       ctx.beginPath();ctx.moveTo(x+8,y-163);ctx.quadraticCurveTo(x+34,y-170+wave,x+62,y-160+wave);
       ctx.lineTo(x+56,y-151+wave);ctx.quadraticCurveTo(x+31,y-156+wave,x+8,y-151);ctx.closePath();ctx.fill();ctx.stroke();
+      }
     }
   }else if(kind==='beacon'){
     const scale=destination?.45:.39;
@@ -1128,6 +1158,7 @@ function drawPaintedHarborShowcase(){
   for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])sceneLabel(label,x,y,{center:true,important:true});
 }
 function drawRouteLandmark(kind,x,y,destination=false){
+  if(worldIndex()===0&&kind==='shed'&&illustrations.forestProps){drawPaintedForestShelter(x,y);return;}
   if(worldIndex()===2&&illustrations.rooftopEnvironment&&illustrations.rooftopLandmarks){
     drawPaintedRooftopObject(kind,x,y,destination);return;
   }
@@ -1267,7 +1298,7 @@ function draw(dt=1/60){
   ctx.fillStyle='#edcc84';ctx.fillRect(end.x+44,end.y-36,17,36);oval(ctx,end.x+57,end.y-17,1.4,1.4,'#69503e');
   }
   if(level.fake){line(ctx,[[565,391],[565,352]],'#7f7356',3);sceneLabel('终点？',565,365,{center:true});}
-  for(const s of level.saws){const x=s.x+Math.sin(time*1.8)*s.range;line(ctx,[[s.anchor,0],[x,s.y]],'#8d8b72',1);oval(ctx,x,s.y,s.r,s.r,'#b85d4d');line(ctx,[[x-3,s.y-6],[x+1,s.y-13],[x+7,s.y-12]],'#718556',2);}
+  for(const s of level.saws)drawSwingFruit(s);
   for(const f of fish)if(!f.got){
     const y=f.y+Math.sin(time*3+f.x)*3;
     if(illustrations.environment)ctx.drawImage(illustrations.environment,1124,693,310,150,f.x-12,y-5.8,24,11.6);
