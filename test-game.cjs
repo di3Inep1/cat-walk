@@ -37,7 +37,7 @@ function solveAttempt(index,route=[]){
   if(index===testStop)return route;
   if(index===exitIndex()){
     keys.add('ArrowRight');
-    for(let n=0;n<90&&state==='play';n++)update(STEP);
+    for(let n=0;n<600&&state==='play';n++)update(STEP);
     return state==='clear'||state==='complete'?route:null;
   }
   const nextIndex=testTargets[index]??level.routeNext[index];
@@ -162,15 +162,38 @@ for(let i=0;i<9;i++){
 run('start(0)');
 assert.equal(run('boards.slice(0,6).filter(b=>b.fragile||b.spring||b.ice||b.belt).length'),1,
   'Opening teaches only the single collapsing bridge');
-run('start(1);testTargets={4:level.route.length}');
-assert.ok(run('solve(0)'),'Optional orchard detour rejoins a continuous route to the exit');
-run("start(1);checkpoint=level.route.length;spawn();keys.add('ArrowRight');for(let i=0;i<20;i++)update(STEP);keys.clear()");
-assert.equal(run('fish[fish.length-2].got'),true,'Optional orchard fish can be collected');
-assert.ok(run('solve(level.route.length)'),'Collecting the bonus leaves a route back to the exit');
-run("start(1);checkpoint=level.route.length+1;spawn();keys.add('ArrowRight');for(let i=0;i<20;i++)update(STEP);keys.clear()");
-assert.equal(run('fish[fish.length-1].got'),true,'The second roof reward is collectible');
-assert.ok(run('solve(level.route.length+1)'),'The upper route rejoins the main path');
+assert.equal(run('boards.filter(b=>b.fragile).length'),1,'The whole first level teaches one collapsing bridge');
+for(const [index,from,to] of [[0,4,6],[0,9,13],[1,4,6],[2,4,6]]){
+  run(`start(${index});checkpoint=${from};spawn();keys.add('ArrowRight');var calmAirborne=false;
+    for(let n=0;n<900&&cat.x<boards[${to}].x+boards[${to}].w-65;n++){update(STEP);if(!cat.ground)calmAirborne=true;}
+    keys.clear();`);
+  assert.equal(run('cat.support'),to,'Each designed rest stretch can be walked to its end');
+  assert.equal(run('calmAirborne||deaths>0'),false,'Rest stretches contain no surprise jumps or timed danger');
+  if(index===1)assert.equal(run('fish[3].got||fish[4].got'),false,'The lower orchard route bypasses the optional roof rewards');
+}
+run('start(1);checkpoint=4;spawn();testTargets={4:level.route.length};testStop=level.route.length');
+assert.ok(run('solve(4)'),'The first optional roof is reachable from the fork lamp');
+run("keys.add('ArrowRight');for(let n=0;n<120&&cat.x<fish[3].x-12;n++)update(STEP);keys.clear()");
+assert.equal(run('fish[3].got'),true,'The first roof reward can be collected after a real approach jump');
+run('testTargets={};testStop=level.route.length+1');
+assert.ok(run('solve(level.route.length)'),'The second roof follows a playable jump from the first reward');
+run("keys.add('ArrowRight');for(let n=0;n<120&&cat.x<fish[4].x-12;n++)update(STEP);keys.clear()");
+assert.equal(run('fish[4].got'),true,'The second roof reward is collectible while continuing forward');
+run('testStop=-1');
+assert.ok(run('solve(level.route.length+1)'),'The upper orchard route rejoins the main path and reaches the exit');
+for(const phase of [0,.6,1.2,1.8]){
+  run(`start(1);checkpoint=10;spawn();time=${phase};keys.add('ArrowRight');
+    for(let n=0;n<180&&cat.x<boards[10].x+boards[10].w-25;n++)update(STEP);
+    buffer=.12;jumpHeld=false;var tookOff=false;
+    for(let n=0;n<120&&!deathDelay;n++){update(STEP);if(!cat.ground)tookOff=true;if(tookOff&&cat.ground)break;}`);
+  assert.equal(run('cat.support'),11,'A deliberate small jump passes below the first red fruit at several phases');
+  assert.equal(run('deaths'),0);
+}
+run('start(2)');
+assert.ok(run('level.saws.every(s=>s.x+s.range+s.r<boards[9].x-100)'),'The fruit encounter ends before the final bridge lamp');
 run('testTargets={}');
+run('notice("上一关留下的提示");start(0)');
+assert.equal(run("$('notice').textContent"),'','Changing levels clears stale instructions from the previous route');
 // The mill offers real recovery and a choice that can be played from one lamp.
 for(const shortJump of [false,true]){
   run(`start(7);checkpoint=3;spawn();keys.add('ArrowRight');${shortJump?'buffer=.12;jumpHeld=false;':''}
@@ -535,5 +558,18 @@ assert.equal(millReload.run('elapsed'),38);assert.equal(millReload.run('deaths')
 assert.equal(millReload.run('fish[0].got&&fish[2].got'),true);
 assert.equal(millReload.run('records[7].fish.length'),3,'All previous collections map to the new shelf and gallery rewards');
 assert.equal(millReload.run('records[7].bestTime'),undefined);
-console.log('PASS: 9 routes, every lamp, mill recovery and both choices, eight mechanic jumps, two legacy mill layouts, camera and mobile lifecycle');
+for(const [index,lamp] of [[0,6],[1,7],[2,9]]){
+  const old=JSON.parse(gates.run(`JSON.stringify(mechanicLegacy.get(${index}))`));
+  const last=old.fish.length-1;
+  const restored=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,1,2,3,6],continueLevel:index,
+    records:{[index]:{revision:old.revision,fish:old.fish.map(f=>f.join(',')),bestTime:60},4:{fish:[],bestTime:11}},
+    runs:{[index]:{revision:old.revision,checkpoint:lamp,elapsed:23.4,deaths:2,fish:[last]}}})});
+  assert.equal(restored.run('checkpoint'),lamp,'An old forest lamp maps to its corresponding new rest stage');
+  assert.equal(restored.run('elapsed'),23.4);assert.equal(restored.run('deaths'),2);
+  assert.equal(restored.run(`fish[${last}].got`),true);
+  assert.equal(restored.run(`records[${index}].fish.length`),old.fish.length,'All old forest fish collections retain their identity');
+  assert.equal(restored.run(`records[${index}].bestTime`),undefined);
+  assert.equal(restored.run('records[4].bestTime'),11,'Unchanged harbor records survive a forest update');
+}
+console.log('PASS: 9 routes, every lamp, forest rest walks and roof rewards, red-fruit small jumps, mill branches, eight mechanic jumps, old saves and mobile lifecycle');
 

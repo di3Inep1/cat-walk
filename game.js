@@ -80,7 +80,7 @@ function updateCamera(dt){
   const targetX=Math.max(0,Math.min(W-camera.w,cat.x+cat.w/2-camera.w*(gate?.35:.4)+(cat.vx+cat.launchVx+cat.windVx)*.1));
   let targetY=Math.max(0,Math.min(H-camera.h,camera.groundY-camera.h*(frame?.ground??(gate?.78:.74))));
   if(frame)targetY=Math.max(targetY,Math.max(0,Math.min(H-camera.h,frame.bottom-camera.h)));
-  if(gate&&!cat.ground)targetY=Math.max(0,Math.min(targetY,cat.y-camera.h*.28));
+  if((gate||frame)&&!cat.ground)targetY=Math.max(0,Math.min(targetY,cat.y-camera.h*.28));
   const ease=camera.snap?1:1-Math.exp(-dt*8);
   camera.x+=(targetX-camera.x)*ease;camera.y+=(targetY-camera.y)*ease;camera.snap=false;
   // Keep the cat visible during a drop or an unusually narrow viewport.
@@ -413,6 +413,62 @@ function refineMillJourney(){
   MILL_ROOMS.forEach((room,i)=>Object.assign(room,{from:edges[i],to:edges[i+1]}));
 }
 refineMillJourney();
+function refineForestChapter(){
+  for(const i of [0,1,2]){
+    const l=LEVELS[i];
+    mechanicLegacy.set(i,{revision:levelRevision(i),fish:l.fish.map(f=>[...f])});
+    let layout,sections;
+    if(i===0){
+      layout=[[0,450,180],[215,430,125],[375,405,170],[585,385,160],
+        [790,420,150],[940,420,100],[1040,420,240],[1315,395,150],
+        [1500,365,170],[1705,395,240],[1945,395,150],[2095,395,150],
+        [2245,395,150],[2395,395,285],[555,475,225]];
+      l.traits[11].fragile=false;
+      l.fish=[[1190,388],[1595,333],[2535,363]];
+      l.cameraFrames=[{from:295,to:940,height:360,ground:.6,bottom:540}];
+      sections=[
+        [0,'溪边出发','先试两次小跳。轻点跳得低，按住跳得高。','tree'],
+        [2,'第一座旧桥','路灯会记住这里。裂纹板会塌，下方有接住你的小路。','arch'],
+        [6,'树荫歇脚处','桥已经过去了。在这条平整木道上收一条鱼干。','tree'],
+        [9,'林间缓坡','刚才的跳跃已经够用了。沿平整小径走向树洞吧。','arch'],
+        [13,'树洞驿站','第一段路走完了，前面是果园。','gate']
+      ];
+    }else if(i===1){
+      layout=[[0,450,210],[245,425,160],[440,390,180],[655,365,140],
+        [830,365,210],[1040,365,190],[1230,365,200],[1470,365,250],
+        [1760,365,150],[1950,365,180],[2130,365,240],[2410,365,180],
+        [2630,365,150],[2780,365,160],[880,265,190],[1110,250,170]];
+      l.fish=[[1200,333],[1630,333],[2860,333],[1000,235],[1240,220]];
+      l.saws=[{x:2390,y:285,r:12,range:38,anchor:2390}];
+      l.cameraFrames=[{from:750,to:1430,height:340,ground:.6,bottom:430}];
+      sections=[
+        [0,'石阶入口','沿几级缓坡进入果园，先到前面的路灯。','arch'],
+        [4,'果园棚下','下层木道可以直接走；棚顶有两条鱼干，想找就向上跳。','shed'],
+        [7,'树荫汇合处','两条路回到了这里。先在宽木台上歇脚。','tree'],
+        [10,'等红果摆开','先看一眼红果。等它让开再跳，也可以轻点跳跃从低处穿过。','arch'],
+        [13,'果园出口','经过最后两次小跳，就能沿木道走出果园。','gate']
+      ];
+    }else{
+      layout=[[0,450,200],[235,425,150],[420,395,210],[670,370,150],
+        [855,405,165],[1020,405,220],[1240,405,240],[1515,375,160],
+        [1710,345,170],[1915,380,240],[2190,355,170],[2395,320,150],
+        [2580,350,140],[2720,350,200]];
+      l.fish=[[1110,373],[2015,348],[2820,318]];
+      l.saws=[{x:1692,y:288,r:12,range:32,anchor:1692}];
+      sections=[
+        [0,'雨后木道','已经会跳了。先到路灯，再经过前面的旧桥。','tree'],
+        [2,'雨后的第一座桥','这块旧板也有裂纹，沿熟悉的方法及时跳过去。','arch'],
+        [6,'雨棚歇脚','在这里站稳。前面先等红果让开，再跳上石阶。','shed'],
+        [9,'晚灯桥头','红果已经留在身后。最后一块裂纹板，跳过去就接近出口了。','arch'],
+        [13,'森林边界','走到前面的拱门，码头的风就在林外。','gate']
+      ];
+    }
+    l.boards=layout;
+    l.sections=sections.map(([board,name,hint,kind],n)=>({board,x:layout[board][0],name,hint,kind,source:'forest-rhythm-'+i+'-'+n}));
+    const end=layout[l.exit];l.width=end[0]+end[2];l.finishX=l.width-55;l.hint=l.sections[0].hint;
+  }
+}
+refineForestChapter();
 function legacyLayouts(i){const legacy=mechanicLegacy.get(i);return legacy?[legacy,...legacy.versions||[]]:[];}
 const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1,windVx:0,launchVx:0,airCruise:240};
 // Presentation follows the real movement; it never changes the collision body.
@@ -591,6 +647,7 @@ function spawn(){
 }
 function loadLevel(i,resume=false){
   levelIndex=i;level=LEVELS[i];checkpoint=-1;time=0;fakeTriggered=false;lessonSeen=new Set();
+  clearTimeout(noticeTimer);$('notice').classList.remove('visible');$('notice').textContent='';
   Object.assign(millMoment,{warned:false,rung:false,age:0});
   millLanding.age=1;
   Object.assign(lampIgnition,{board:-1,at:-99});
@@ -600,6 +657,17 @@ function loadLevel(i,resume=false){
   $('app').setAttribute('data-world',world().scene);
   $('app').setAttribute('data-location',i===7?'mill':world().scene);
   boards=level.boards.map(([x,y,w],index)=>({x,y,w,h:18,...level.traits[index],crack:-1}));
+  if(worldIndex()===0){
+    // Adjacent collision tops form one illustrated meadow, with lamps kept separate.
+    const grass=boards.filter(b=>!b.fragile&&!b.bonus);
+    for(const b of grass){
+      b.joinedDeck=grass.some(p=>p!==b&&p.y===b.y&&p.x+p.w===b.x);
+      if(b.joinedDeck)continue;
+      let end=b.x+b.w,next;
+      while((next=grass.find(p=>p.y===b.y&&p.x===end)))end=next.x+next.w;
+      b.deckWidth=end-b.x;
+    }
+  }
   $('hint').textContent=level.hint;
   fish=level.fish.map(([x,y])=>({x,y,got:false}));
   const run=resume?resumableRun(i):null;
@@ -849,7 +917,7 @@ function drawBoard(b,i){
   const urgency=b.crack<0?0:b.crack/crumbleDelay(b);
   const jitter=urgency>0?Math.sin(time*65)*urgency*2:0;
   ctx.save();ctx.translate(jitter,0);
-  if(worldIndex()===0&&illustrations.environment)drawPaintedPlatform(b);
+  if(worldIndex()===0&&illustrations.environment){if(!b.joinedDeck)drawPaintedPlatform(b.deckWidth?{...b,w:b.deckWidth}:b);}
   else if(worldIndex()===1&&illustrations.harborEnvironment)drawPaintedDock(b);
   else if(worldIndex()===2&&b.fragile&&illustrations.millExterior)drawMillExteriorBoard(b);
   else if(usesMillDeck(b)&&illustrations.millEnvironment)drawMillBoard(b);
@@ -890,7 +958,10 @@ function drawPaintedPlatform(b){
   const scale=.2,cap=Math.min(18,b.w/3),y=b.y-frame.top*scale;
   // Separate end caps preserve the painted outline on both short and wide ledges.
   ctx.drawImage(image,frame.x,frame.y,90,frame.h,b.x,y,cap,frame.h*scale);
-  ctx.drawImage(image,frame.x+90,frame.y,332,frame.h,b.x+cap,y,b.w-cap*2,frame.h*scale);
+  if(b.w>300){
+    const tile=83,right=b.x+b.w-cap;
+    for(let x=b.x+cap;x<right;x+=tile){const width=Math.min(tile,right-x);ctx.drawImage(image,frame.x+90,frame.y,332*width/tile,frame.h,x,y,width,frame.h*scale);}
+  }else ctx.drawImage(image,frame.x+90,frame.y,332,frame.h,b.x+cap,y,b.w-cap*2,frame.h*scale);
   ctx.drawImage(image,frame.x+422,frame.y,90,frame.h,b.x+b.w-cap,y,cap,frame.h*scale);
   if(b.fragile)line(ctx,[[b.x+b.w*.5,b.y+1],[b.x+b.w*.48,b.y+8],[b.x+b.w*.53,b.y+15]],'#62442f',1.5);
 }
@@ -1600,9 +1671,9 @@ function drawLessonSigns(){
   if(levelIndex!==0)return;
   // Small world-space prompts stay near the relevant action; no tutorial modal.
   sceneLabel('跳一下 →',157,400,{center:true,important:true});
-  sceneLabel('歇歇脚',453,318,{center:true,important:true});
-  sceneLabel('有裂纹…',641,340,{tone:'warning',center:true,important:true});
-  sceneLabel('小路也能回家 →',635,510,{center:true,important:true});
+  const bridge=boards[3],rescue=boards[level.rescue];
+  sceneLabel('有裂纹…',bridge.x+bridge.w*.5,bridge.y-45,{tone:'warning',center:true,important:true});
+  sceneLabel('小路也能回家 →',rescue.x+rescue.w*.5,rescue.y+35,{center:true,important:true});
 }
 function drawMechanicGuides(){
   const labels={wind:'借顺风长跳 →',ice:'滑行蓄速再跳 →',belt:'借传送惯性跳 →',headwind:'逆风要靠前缘 →','ice-brake':'近落点，提前收速 →','reverse-belt':'逆向带，靠前缘跳 →'};
@@ -1624,6 +1695,15 @@ function drawMillRouteGuides(){
   sceneLabel('回到路灯 ↗',step.x+75,step.y-38,{center:true});
   sceneLabel('鱼干在上层 ↗',1710,300,{center:true,important:true});
   sceneLabel('下层木廊 →',1880,390,{center:true});
+}
+function drawForestRhythmGuides(){
+  if(levelIndex===1){
+    const b=boards[10];
+    sceneLabel('轻点小跳，或等红果让开 →',b.x+b.w*.56,b.y-70,{center:true,important:true});
+  }else if(levelIndex===2){
+    const b=boards[7];
+    sceneLabel('等红果让开，再跳上去 →',b.x+b.w*.5,b.y-62,{center:true,important:true});
+  }
 }
 function catPresentation(){
   const speed=Math.abs(cat.vx),walking=cat.ground&&speed>20;
@@ -1923,7 +2003,7 @@ function drawAuthoredLandmarks(){
     if(isEnd)landmarkX=level.finishX+12;
     if(levelIndex===1&&section.board===4)drawOrchardShelter();
     else drawRouteLandmark(section.kind,landmarkX,b.y,isEnd);
-    if(levelIndex!==1||section.board!==4)sceneLabel(section.name+' →',x,b.y-(section.kind==='clock'?170:125),{center:true});
+    if(levelIndex!==1||(section.board!==4&&section.board!==10))sceneLabel(section.name+' →',x,b.y-(section.kind==='clock'?170:125),{center:true});
   }
   const end=boards[exitIndex()];
   if(!level.sections.some(s=>s.board===exitIndex()))drawRouteLandmark(level.sections[level.sections.length-1].kind,level.finishX+12,end.y,true);
@@ -1935,9 +2015,10 @@ function drawOrchardShelter(){
     line(ctx,[[b.x+b.w-10,b.y+20],[b.x+b.w-10,415]],'#86967a',5);
     line(ctx,[[b.x+10,b.y+38],[b.x+b.w-10,b.y+64]],'#a8af8d',2);
   }
-  sceneLabel('↑ 棚顶鱼干 · 可选',886,204,{important:true});
-  sceneLabel('安全木道 →',900,425,{important:true});
-  sceneLabel('↓ 回到木道',1205,270,{important:true});
+  const roofs=boards.filter(b=>b.bonus);
+  sceneLabel('↑ 棚顶鱼干 · 可选',roofs[0].x+6,roofs[0].y-25,{important:true});
+  sceneLabel('下层木道 →',1090,405,{important:true});
+  sceneLabel('↓ 回到木道',roofs[1].x+roofs[1].w+12,roofs[1].y+35,{important:true});
 }
 function draw(dt=1/60){
   sceneLabels=[];
@@ -1972,6 +2053,7 @@ function draw(dt=1/60){
   drawLessonSigns();
   drawMechanicGuides();
   drawMillRouteGuides();
+  drawForestRhythmGuides();
   for(const [x,y,w] of level.thorns){for(let j=0;j<w;j+=10){ctx.fillStyle='#a76050';ctx.beginPath();ctx.moveTo(x+j,y+14);ctx.quadraticCurveTo(x+j+3,y+3,x+j+7,y);ctx.lineTo(x+j+10,y+14);ctx.fill();line(ctx,[[x+j+3,y+12],[x+j+7,y+3]],'#6b493f');}}
   const end=boards[exitIndex()];
   if(level.showcase){
