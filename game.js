@@ -70,14 +70,16 @@ function resizeView(){
 }
 function updateCamera(dt){
   const gate=[...level?.mechanicGates||[],...level?.mechanicNotes||[]].find(g=>cat.x>=boards[g.from].x-130&&cat.x<=boards[g.to].x+boards[g.to].w);
+  const frame=level?.cameraFrames?.find(f=>cat.x>=f.from&&cat.x<f.to);
   const base=camera.baseW||camera.w;
   const aspect=camera.aspect||camera.w/camera.h;
-  const lens=gate?Math.max(base,560,Math.min(800,aspect*280)):base;
+  const lens=frame?Math.max(base,560,aspect*frame.height):gate?Math.max(base,560,Math.min(800,aspect*280)):base;
   camera.w+=(lens-camera.w)*(camera.snap?1:1-Math.exp(-dt*6));
   camera.h=Math.min(H,camera.w/aspect);
   if(cat.ground)camera.groundY=cat.y+cat.h;
   const targetX=Math.max(0,Math.min(W-camera.w,cat.x+cat.w/2-camera.w*(gate?.35:.4)+(cat.vx+cat.launchVx+cat.windVx)*.1));
-  let targetY=Math.max(0,Math.min(H-camera.h,camera.groundY-camera.h*(gate?.78:.74)));
+  let targetY=Math.max(0,Math.min(H-camera.h,camera.groundY-camera.h*(frame?.ground??(gate?.78:.74))));
+  if(frame)targetY=Math.max(targetY,Math.max(0,Math.min(H-camera.h,frame.bottom-camera.h)));
   if(gate&&!cat.ground)targetY=Math.max(0,Math.min(targetY,cat.y-camera.h*.28));
   const ease=camera.snap?1:1-Math.exp(-dt*8);
   camera.x+=(targetX-camera.x)*ease;camera.y+=(targetY-camera.y)*ease;camera.snap=false;
@@ -373,6 +375,45 @@ function upgradeMechanicRoutes(){
   Object.assign(MILL_JOURNEYS[8][2],{from:ATTIC_SHELL.right,to:attic.width});
 }
 upgradeMechanicRoutes();
+function refineMillJourney(){
+  const l=LEVELS[7],legacy=mechanicLegacy.get(7);
+  // Keep both published layouts addressable by their original lamp/fish identity.
+  legacy.versions=[{revision:levelRevision(7),fish:l.fish.map(f=>[...f])}];
+  l.boards[6]=[1770,420,300];l.traits[6].belt=0;
+  l.boards[8]=[2390,360,220];l.traits[8].belt=-115;
+  const tail=[[2700,325,240],[2980,370,240],[3470,335,220],
+    [3690,335,150],[3840,335,240],[4080,335,320]];
+  tail.forEach((b,i)=>l.boards[9+i]=b);
+  const add=(b,trait)=>{l.boards.push(b);l.traits.push({source:-1,...trait});return l.boards.length-1;};
+  const catchDeck=add([960,500,420],{recovery:true});
+  const recoveryStep=add([1410,455,180],{recovery:true});
+  const upperBelt=add([1760,280,240],{bonus:true,belt:140});
+  const fishShelf=add([2230,230,160],{bonus:true});
+  l.routeNext[catchDeck]=recoveryStep;l.routeNext[recoveryStep]=5;
+  l.routeNext[upperBelt]=fishShelf;l.routeNext[fishShelf]=8;
+  l.recovery={from:3,catchDeck,step:recoveryStep,join:5};
+  l.choice={from:5,lower:[6,7],upper:[upperBelt,fishShelf],join:8,fish:0};
+  l.cameraFrames=[{from:630,to:1450,height:360,ground:.55,bottom:540},
+    {from:1450,to:2655,height:340,ground:.6,bottom:480}];
+  l.mechanicGates=[{kind:'belt',from:3,to:4},
+    {kind:'belt',from:upperBelt,to:fishShelf,label:'借力去拿鱼干 →'},
+    {kind:'belt',from:10,to:11}];
+  l.mechanicNotes=[{kind:'reverse-belt',from:8,to:9}];
+  l.sections=[
+    [0,'木轮醒来','沿木廊走向路灯，听听旧磨坊的声音。','mill'],
+    [2,'先借一次力','从帆布前缘长跳。没跳过去，下方检修木廊也能接住你。','hopper'],
+    [5,'选一条路','下层木廊稳妥通行；向上跳到帆布带，可以去高处找鱼干。','pulley'],
+    [8,'回程检修带','两条路在这里汇合。帆布向左，靠近右边缘再起跳。','pulley'],
+    [9,'阁楼最后一跃','再借一次顺向带的惯性。看到落点后，从前缘长跳。','mill-exit'],
+    [11,'灯下歇脚','跳过来了。前面是平整的木廊，慢慢走向暖灯吧。','mill-exit']
+  ].map(([board,name,hint,kind],i)=>({board,x:l.boards[board][0],name,hint,kind,source:'mill-journey-'+i}));
+  l.fish=[[2310,198],[2856,283],[3990,297]];
+  l.width=4400;l.finishX=4345;l.hint=l.sections[0].hint;
+  const edges=[0,660,2655,3840,l.width];
+  MILL_ROOMS.forEach((room,i)=>Object.assign(room,{from:edges[i],to:edges[i+1]}));
+}
+refineMillJourney();
+function legacyLayouts(i){const legacy=mechanicLegacy.get(i);return legacy?[legacy,...legacy.versions||[]]:[];}
 const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1,windVx:0,launchVx:0,airCruise:240};
 // Presentation follows the real movement; it never changes the collision body.
 const catMotion={stride:0,idle:0,turn:0,brake:0,dust:0,launch:0};
@@ -465,7 +506,7 @@ try {
         const legacy=mechanicLegacy.get(i);
         const collected=Array.isArray(record.fish)?record.fish.map(key=>{
           if(known.has(key))return key;
-          const old=legacy?.fish.findIndex(f=>fishKey(f)===key)??-1;
+          const old=legacyLayouts(i).map(v=>v.fish.findIndex(f=>fishKey(f)===key)).find(n=>n>=0)??-1;
           return old>=0?fishKey(item.fish[old]):null;
         }).filter(key=>key&&known.has(key)):[];
         records[i]={fish:[...new Set(collected)],revision:levelRevision(i)};
@@ -474,8 +515,8 @@ try {
         if(comparable&&Number.isInteger(record.bestDeaths)&&record.bestDeaths>=0)records[i].bestDeaths=record.bestDeaths;
       }
       if(isLevelUnlocked(i)&&saved.runs?.[i]){
-        const old=mechanicLegacy.get(i);
-        runs[i]=old&&saved.runs[i].revision===old.revision?{...saved.runs[i],revision:levelRevision(i),upgraded:true}:saved.runs[i];
+        const old=legacyLayouts(i).find(v=>saved.runs[i].revision===v.revision);
+        runs[i]=old?{...saved.runs[i],revision:levelRevision(i),upgraded:true}:saved.runs[i];
         if(!resumableRun(i))delete runs[i];
       }
     });
@@ -597,6 +638,10 @@ function die(reason='失足也没关系，马上再来。'){
 function finish(){
   if(state!=='play')return;
   rememberFish();
+  if(levelIndex===7){
+    cat.vx=0;cat.launchVx=0;cat.windVx=0;landing=0;
+    resetCatMotion();catMotion.idle=6.5;
+  }
   const record=records[levelIndex];
   const faster=record.bestTime===undefined||elapsed<record.bestTime;
   const fewer=record.bestDeaths===undefined||deaths<record.bestDeaths;
@@ -609,7 +654,7 @@ function finish(){
   continueLevel=Math.min(LEVELS.length-1,levelIndex+1);
   save();clearInput();syncAudio();cue('finish');
   panel(state==='complete'?'到家了，猫猫。':levelIndex%3===2?world().name+'，走过了。':'这一页，走过了。',
-    state==='complete'?'磨坊的铃声远了，窗里的灯还亮着。':'每一步，都离家更近了。',
+    state==='complete'?'磨坊的铃声远了，窗里的灯还亮着。':levelIndex===7?'木轮的声音留在身后，阁楼的暖灯已经亮起。':'每一步，都离家更近了。',
     state==='complete'?'再走一遍 →':'下一关：'+LEVELS[levelIndex+1].name+' →',state==='complete'?'散步结束 / 三章回家路':(worldIndex()+1)+'-'+(levelIndex%3+1)+' COMPLETE');
   $('runSummary').replaceChildren();
   for(const [label,value,best] of [
@@ -689,6 +734,7 @@ function update(dt){
         if(b.source===0)teach('lamp','路灯已点亮。前面的裂纹板，别停太久。');
         else notice('路灯点亮，跌倒后从这里继续。');hud();save();}
       if(levelIndex===0&&i===level.rescue)teach('rescue','接住你了。从右边的小台阶回去就好。');
+      if(level.recovery&&(i===level.recovery.catchDeck||i===level.recovery.step))teach('mill-recovery','检修木廊接住你了。沿右边的小台阶回到路灯。');
       if(i===exitIndex()&&cat.x>(level.finishX??b.x+24)){finish();return;}
     }
   }
@@ -1073,7 +1119,7 @@ function drawMillLandmarks(){
   for(const section of level.sections){
     const b=boards[section.board],x=b.x+b.w*.65;
     if(x<camera.x-180||x>camera.x+camera.w+180)continue;
-    if(!illustrations.millRooms||section.kind==='hopper'||section.kind==='pulley')sceneLabel(section.name+' →',x,b.y-137,{center:true});
+    if(!illustrations.millRooms)sceneLabel(section.name+' →',x,b.y-137,{center:true});
   }
   const end=boards[exitIndex()];
   ctx.drawImage(image,1024,512,512,512,level.finishX-45,end.y-146,153,153);
@@ -1567,9 +1613,17 @@ function drawMechanicGuides(){
       const x=from.x+28,y=from.y-105;
       line(ctx,[[x,y],[x,from.y]],'#79634c',2.8);drawPaintedWindsock(x,y);
     }
-    sceneLabel(labels[gate.kind],from.x+from.w*.48,from.y-68,{center:true,important:true});
+    sceneLabel(gate.label||labels[gate.kind],from.x+from.w*.48,from.y-68,{center:true,important:true});
     sceneLabel('落点 ↓',to.x+Math.min(40,to.w*.25),to.y-38,{center:true});
   }
+}
+function drawMillRouteGuides(){
+  if(levelIndex!==7)return;
+  const recovery=boards[level.recovery.catchDeck],step=boards[level.recovery.step];
+  sceneLabel('检修木廊也能回来 →',recovery.x+recovery.w*.5,recovery.y-36,{center:true});
+  sceneLabel('回到路灯 ↗',step.x+75,step.y-38,{center:true});
+  sceneLabel('鱼干在上层 ↗',1710,300,{center:true,important:true});
+  sceneLabel('下层木廊 →',1880,390,{center:true});
 }
 function catPresentation(){
   const speed=Math.abs(cat.vx),walking=cat.ground&&speed>20;
@@ -1917,6 +1971,7 @@ function draw(dt=1/60){
   drawMillGrain();
   drawLessonSigns();
   drawMechanicGuides();
+  drawMillRouteGuides();
   for(const [x,y,w] of level.thorns){for(let j=0;j<w;j+=10){ctx.fillStyle='#a76050';ctx.beginPath();ctx.moveTo(x+j,y+14);ctx.quadraticCurveTo(x+j+3,y+3,x+j+7,y);ctx.lineTo(x+j+10,y+14);ctx.fill();line(ctx,[[x+j+3,y+12],[x+j+7,y+3]],'#6b493f');}}
   const end=boards[exitIndex()];
   if(level.showcase){

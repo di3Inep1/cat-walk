@@ -20,6 +20,7 @@ const {context,run,handlers,windowHandlers,selection}=boot();
 run(`
 function snapshot(){return JSON.stringify({cat,boards,fish,checkpoint,time,state,deathDelay,deaths,elapsed,records,runs});}
 let testTargets={};
+let testStop=-1;
 function restore(text){const s=JSON.parse(text);Object.assign(cat,s.cat);boards=s.boards;fish=s.fish;checkpoint=s.checkpoint;time=s.time;state=s.state;deathDelay=s.deathDelay;deaths=s.deaths;elapsed=s.elapsed;records=s.records;runs=s.runs;keys.clear();buffer=0;coyote=.1;jumpHeld=false;}
 function solve(index,route=[]){
   const saved=snapshot();
@@ -33,6 +34,7 @@ function solve(index,route=[]){
   restore(saved);return null;
 }
 function solveAttempt(index,route=[]){
+  if(index===testStop)return route;
   if(index===exitIndex()){
     keys.add('ArrowRight');
     for(let n=0;n<90&&state==='play';n++)update(STEP);
@@ -40,11 +42,25 @@ function solveAttempt(index,route=[]){
   }
   const nextIndex=testTargets[index]??level.routeNext[index];
   const saved=snapshot(),b=boards[index],target=boards[nextIndex];
+  // Adjacent gallery decks and lower paths should be walked, not forced into jumps.
+  if(target.y>=b.y&&target.x-b.x-b.w<=80){
+    keys.add('ArrowRight');
+    for(let n=0;n<600&&!deathDelay;n++){
+      if(cat.x>target.x+target.w-48)keys.delete('ArrowRight');
+      update(STEP);
+      if(state==='clear'||state==='complete')return [...route,'walk'];
+      if(cat.ground&&cat.support===nextIndex){
+        const result=solve(nextIndex,[...route,'walk']);if(result)return result;break;
+      }
+      if(cat.ground&&cat.support!==index)break;
+    }
+    restore(saved);
+  }
   // Launch positions cover early jumps over thorns and late jumps across gaps.
   for(let launch=Math.max(b.x+5,cat.x);launch<=b.x+b.w-12;launch+=8){
     restore(saved);let failed=false;
     keys.add('ArrowRight');
-    for(let n=0;cat.x<launch&&n<150;n++){update(STEP);if(deathDelay>0||!cat.ground){failed=true;break;}}
+    for(let n=0;cat.x<launch&&n<600;n++){update(STEP);if(deathDelay>0||!cat.ground){failed=true;break;}}
     if(failed)continue;
     buffer=.12;jumpHeld=true;let airborne=false;
     for(let n=0;n<160;n++){
@@ -53,7 +69,7 @@ function solveAttempt(index,route=[]){
       if(!cat.ground)airborne=true;
       if(state==='clear'||state==='complete')return [...route,Math.round(launch)];
       if(airborne&&cat.ground){
-        if(Math.abs(cat.y+cat.h-target.y)<.1&&cat.x>=target.x-15){
+        if(cat.support===nextIndex){
           const result=solve(nextIndex,[...route,Math.round(launch)]);if(result)return result;
         }break;
       }
@@ -68,7 +84,7 @@ for(let i=0;i<run('LEVELS.length');i++){
   assert.ok(run('W')>1900,'Level must be physically longer, not just renamed');
   assert.ok(run('solve(0)'),'No continuous route in long level '+(i+1));
   assert.equal(run('state'),i===8?'complete':'clear');
-  assert.ok(run('cat.x>W-120'),'Only the final end of the long map can finish');
+  assert.ok(run('cat.support===exitIndex()&&cat.x>(level.finishX??boards[exitIndex()].x+24)'),'Only the authored final exit can finish');
   console.log('Long level '+(i+1)+': '+run('level.width')+' px, '+run('level.route.length')+' main platforms');
   const checks=JSON.parse(run('JSON.stringify(level.checks)'));
   for(const index of checks){
@@ -138,7 +154,7 @@ for(const [width,height] of [[1140,641],[844,300],[350,263]]){
 assert.equal(run('LEVELS.filter(item=>item.refined).length'),8);
 for(let i=0;i<9;i++){
   run(`start(${i})`);
-  assert.equal(run('level.sections.length'),4,'Each route has four authored sections');
+  assert.ok(run('level.sections.length>=4'),'Each route has authored teaching and rest sections');
   assert.ok(run('level.checks.every(i=>!boards[i].fragile&&!boards[i].ice&&!boards[i].belt)'),
     'Lamps provide stable places to restart');
   assert.ok(run('level.checks.every(i=>level.route.includes(i))'),'Every lamp is on the main route');
@@ -155,6 +171,39 @@ run("start(1);checkpoint=level.route.length+1;spawn();keys.add('ArrowRight');for
 assert.equal(run('fish[fish.length-1].got'),true,'The second roof reward is collectible');
 assert.ok(run('solve(level.route.length+1)'),'The upper route rejoins the main path');
 run('testTargets={}');
+// The mill offers real recovery and a choice that can be played from one lamp.
+for(const shortJump of [false,true]){
+  run(`start(7);checkpoint=3;spawn();keys.add('ArrowRight');${shortJump?'buffer=.12;jumpHeld=false;':''}
+    for(let n=0;n<360&&cat.support!==level.recovery.catchDeck&&!deathDelay;n++)update(STEP);
+    keys.clear();`);
+  assert.equal(run('cat.support'),run('level.recovery.catchDeck'),'A walk-off or early short jump is caught below the first conveyor');
+  assert.equal(run('deaths'),0,'The first conveyor teaches without charging a death for this mistake');
+  assert.ok(run('solve(level.recovery.catchDeck)'),'The lower repair steps return to a complete route');
+}
+run('start(7);checkpoint=5;spawn();testStop=9');
+assert.ok(run('solve(5)'),'The lower choice reaches the shared lamp');
+assert.equal(run('fish[0].got'),false,'The main route does not require the high-shelf reward');
+assert.equal(run('checkpoint'),9);
+run('start(7);checkpoint=5;spawn();testTargets={5:level.choice.upper[0]};testStop=level.choice.upper[1]');
+assert.ok(run('solve(5)'),'The optional upper conveyor and fish shelf are reachable from the fork lamp');
+assert.equal(run('cat.support'),run('level.choice.upper[1]'));
+run("keys.add('ArrowRight');for(let n=0;n<90&&cat.x<fish[0].x-12;n++)update(STEP);keys.clear()");
+assert.equal(run('fish[0].got'),true,'The high shelf reward can be collected while standing on its real deck');
+run('pause()');
+const choiceReload=boot({'tiny-trouble-long-v1':context.localStorage.getItem('tiny-trouble-long-v1')});
+assert.equal(choiceReload.run('checkpoint'),5,'Reloading from the optional shelf returns to the fork lamp');
+assert.equal(choiceReload.run('fish[0].got'),true,'Reloading keeps the optional fish already earned');
+run('pause()');
+run('testTargets={};testStop=-1');
+assert.ok(run('solve(level.choice.upper[1])'),'The reward route safely rejoins the main path and reaches the exit');
+run('start(7);checkpoint=11;spawn();keys.add("ArrowRight");for(let n=0;n<700&&state==="play";n++)update(STEP)');
+assert.equal(run('state'),'clear','After the final long jump, the warm gallery can be walked to the exit');
+assert.equal(run('deaths'),0);
+assert.equal(run('cat.vx'),0,'The cat settles at the warm exit rather than freezing in a running pose');
+run('start(7);canvas.getBoundingClientRect=()=>({width:844,height:300});resizeView();checkpoint=3;spawn();updateCamera(0)');
+assert.ok(run('camera.y+camera.h>boards[level.recovery.catchDeck].y+10'),'The first conveyor shows its lower safety deck before takeoff');
+run('checkpoint=5;spawn();updateCamera(0)');
+assert.ok(run('boards[level.choice.upper[0]].y>camera.y+30&&boards[level.choice.lower[0]].y<camera.y+camera.h-30'),'The fork reveals both vertical choices in a phone view');
 for(let i=0;i<9;i++)run(`start(${i});draw()`);
 run('start(4)');
 assert.equal(run('level.showcase'),true);
@@ -318,7 +367,7 @@ const millStart=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6],c
 assert.equal(millStart.imageRequests.length,10,'The mill loads only shared art and its six indoor assets');
 assert.ok(millStart.imageRequests.every(img=>!img.url.includes('rooftop')&&!img.url.includes('harbor')));
 for(const img of millStart.imageRequests)img.onload();
-millStart.run('next();checkpoint=6;spawn();const startMillX=cat.x;update(STEP)');
+millStart.run('next();checkpoint=8;spawn();const startMillX=cat.x;update(STEP)');
 assert.ok(millStart.run('cat.x<startMillX'),'The return conveyor carries a standing cat left');
 millStart.run('cat.ground=false;cat.y-=90;const jumpMillX=cat.x;update(STEP)');
 assert.equal(millStart.run('cat.x'),millStart.run('jumpMillX'),'A jump leaves the return conveyor');
@@ -477,5 +526,14 @@ assert.equal(migrated.run('elapsed'),42);assert.equal(migrated.run('fish[1].got'
 assert.equal(migrated.run('records[7].fish[0]'),migrated.run('fishKey(LEVELS[7].fish[1])'),'Collected fish migrate by route identity');
 assert.equal(migrated.run('records[7].bestTime'),undefined,'Different route lengths cannot share a best-time record');
 assert.equal(migrated.run('isLevelUnlocked(8)'),true,'Existing unlocks survive the mechanic redesign');
-console.log('PASS: 9 routes, every lamp, seven required-mechanic gaps, migrated saves, camera and mobile lifecycle');
+const publishedMill=oldMechanics.versions[0];
+const millReload=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6,7,8],continueLevel:7,
+  records:{7:{revision:publishedMill.revision,fish:publishedMill.fish.map(f=>f.join(',')),bestTime:55}},
+  runs:{7:{revision:publishedMill.revision,checkpoint:9,elapsed:38,deaths:2,fish:[0,2]}}})});
+assert.equal(millReload.run('checkpoint'),9,'The immediately preceding published mill layout resumes at its matching lamp');
+assert.equal(millReload.run('elapsed'),38);assert.equal(millReload.run('deaths'),2);
+assert.equal(millReload.run('fish[0].got&&fish[2].got'),true);
+assert.equal(millReload.run('records[7].fish.length'),3,'All previous collections map to the new shelf and gallery rewards');
+assert.equal(millReload.run('records[7].bestTime'),undefined);
+console.log('PASS: 9 routes, every lamp, mill recovery and both choices, eight mechanic jumps, two legacy mill layouts, camera and mobile lifecycle');
 
