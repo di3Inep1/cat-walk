@@ -98,7 +98,7 @@ assert.equal(run('clampLevel(999)'),8);
 run('start(4);checkpoint=boards.findIndex(b=>b.spring);spawn();buffer=.12;jumpHeld=true;update(STEP)');
 assert.ok(run('cat.vy')<-680,'Spring boost remains valid after offset');
 run('start(6);checkpoint=boards.findIndex(b=>b.ice);spawn();cat.vx=200;update(STEP)');
-assert.ok(run('cat.vx')>195);run("keys.add('ArrowLeft');for(let i=0;i<40;i++)update(STEP)");
+assert.ok(run('cat.vx')>195);run("keys.add('ArrowLeft');for(let i=0;i<110;i++)update(STEP)");
 assert.ok(run('cat.vx')<0,'Ice brakes');
 run('start(7);checkpoint=boards.findIndex(b=>b.belt>0);spawn();const beltX=cat.x;update(STEP)');
 assert.ok(run('cat.x>beltX'));
@@ -429,5 +429,53 @@ for(const img of missingArt.imageRequests)img.onerror();
 missingArt.run('next();draw()');
 assert.equal(missingArt.run('state'),'play','Failed images retain a playable fallback');
 assert.equal(missingArt.run("$('assetStatus').hidden"),false);
-console.log('PASS: 9 routes, every lamp, orchard detour, camera, reload/resume, per-level records, legacy saves and mobile lifecycle');
+const gates=boot();
+gates.run(`
+function reachGate(index,from,kind,disabled,marginList){
+  const raw=LEVELS[index].boards[from];
+  const margins=marginList||[];
+  if(!marginList)for(let m=8;m<raw[2]-28;m+=6)margins.push(m);
+  for(const margin of margins){
+    start(index);checkpoint=from;spawn();
+    if(disabled){
+      if(kind==='wind')level={...level,winds:[]};
+      if(kind==='ice')boards[from].ice=false;
+      if(kind==='belt')boards[from].belt=0;
+    }
+    const source=boards[from],target=boards[from+1],launch=source.x+source.w-margin;
+    keys.add('ArrowRight');
+    for(let n=0;cat.x<launch&&n<600&&cat.ground;n++)update(STEP);
+    if(!cat.ground||deathDelay)continue;
+    buffer=.12;jumpHeld=true;let airborne=false;
+    for(let n=0;n<180;n++){
+      if(cat.x>target.x+target.w-48)keys.delete('ArrowRight');
+      update(STEP);if(deathDelay)break;
+      if(!cat.ground)airborne=true;
+      if(airborne&&cat.ground){if(cat.support===from+1)return true;break;}
+    }
+  }
+  return false;
+}
+`);
+for(const index of [3,5,6,7,8]){
+  const challenges=JSON.parse(gates.run(`JSON.stringify(LEVELS[${index}].mechanicGates)`));
+  for(const gate of challenges){
+    assert.equal(gates.run(`reachGate(${index},${gate.from},'${gate.kind}',false)`),true,'The intended mechanic can clear its long gap');
+    assert.equal(gates.run(`reachGate(${index},${gate.from},'${gate.kind}',true)`),false,'Disabling '+gate.kind+' must make its long gap unreachable');
+    for(const margin of [8,24,40,56])assert.equal(gates.run(`reachGate(${index},${gate.from},'${gate.kind}',false,[${margin}])`),true,'Long jumps allow several early launch positions, not a single edge frame');
+    gates.run(`start(${index});checkpoint=${gate.from};spawn();cat.x=boards[${gate.from}].x+boards[${gate.from}].w-24;canvas.getBoundingClientRect=()=>({width:844,height:300});resizeView();updateCamera(0)`);
+    assert.ok(gates.run(`camera.x+camera.w>boards[${gate.to}].x+35`),'The landing front is visible before a long jump on mobile');
+    console.log('Mechanic gate '+(index+1)+'/'+gate.from+': '+gate.kind+' required');
+  }
+}
+const oldMechanics=JSON.parse(gates.run('JSON.stringify(mechanicLegacy.get(7))'));
+const migrated=boot({'tiny-trouble-long-v1':JSON.stringify({available:[0,3,6,7,8],cleared:{7:true},continueLevel:7,
+  records:{7:{fish:[oldMechanics.fish[1].join(',')],bestTime:60,bestDeaths:0}},
+  runs:{7:{revision:oldMechanics.revision,checkpoint:5,elapsed:42,deaths:1,fish:[1]}}})});
+assert.equal(migrated.run('checkpoint'),5,'An old lamp resumes at the corresponding new route section');
+assert.equal(migrated.run('elapsed'),42);assert.equal(migrated.run('fish[1].got'),true);
+assert.equal(migrated.run('records[7].fish[0]'),migrated.run('fishKey(LEVELS[7].fish[1])'),'Collected fish migrate by route identity');
+assert.equal(migrated.run('records[7].bestTime'),undefined,'Different route lengths cannot share a best-time record');
+assert.equal(migrated.run('isLevelUnlocked(8)'),true,'Existing unlocks survive the mechanic redesign');
+console.log('PASS: 9 routes, every lamp, seven required-mechanic gaps, migrated saves, camera and mobile lifecycle');
 

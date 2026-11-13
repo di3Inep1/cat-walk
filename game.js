@@ -20,7 +20,7 @@ function requiredIllustrations(){
   const routeArt=levelIndex===7?['mill','millRooms','millHall','millAttic','millEnvironment','millBell']:levelIndex===8?['millApproach','millExterior','mill','millEnvironment','millAttic','millCourtyard','millHomeward','millAtticRoof']:chapters[worldIndex()];
   const extras=[];
   if(worldIndex()===0&&(level.saws.length||level.sections.some(s=>s.kind==='shed')))extras.push('forestProps');
-  if(worldIndex()===1&&level.sections.some(s=>s.kind==='windmill'))extras.push('windsock');
+  if(worldIndex()===1&&level.winds.length)extras.push('windsock');
   return ['cat','catFeedback','environment','signs',...routeArt,...extras];
 }
 function updateIllustrationStatus(){
@@ -63,14 +63,22 @@ function resizeView(){
   camera.h=Math.min(H,camera.w/aspect);
   // Preserve the visible field in very tall layouts.
   camera.w=camera.h*aspect;
+  camera.baseW=camera.w;camera.aspect=aspect;
   const ratio=Math.min(window.devicePixelRatio||1,2);
   canvas.width=Math.round(rect.width*ratio);canvas.height=Math.round(rect.height*ratio);
   camera.pixelWidth=canvas.width;camera.pixelHeight=canvas.height;camera.snap=true;
 }
 function updateCamera(dt){
+  const gate=[...level?.mechanicGates||[],...level?.mechanicNotes||[]].find(g=>cat.x>=boards[g.from].x-130&&cat.x<=boards[g.to].x+boards[g.to].w);
+  const base=camera.baseW||camera.w;
+  const aspect=camera.aspect||camera.w/camera.h;
+  const lens=gate?Math.max(base,560,Math.min(800,aspect*280)):base;
+  camera.w+=(lens-camera.w)*(camera.snap?1:1-Math.exp(-dt*6));
+  camera.h=Math.min(H,camera.w/aspect);
   if(cat.ground)camera.groundY=cat.y+cat.h;
-  const targetX=Math.max(0,Math.min(W-camera.w,cat.x+cat.w/2-camera.w*.4+cat.vx*.1));
-  const targetY=Math.max(0,Math.min(H-camera.h,camera.groundY-camera.h*.74));
+  const targetX=Math.max(0,Math.min(W-camera.w,cat.x+cat.w/2-camera.w*(gate?.35:.4)+(cat.vx+cat.launchVx+cat.windVx)*.1));
+  let targetY=Math.max(0,Math.min(H-camera.h,camera.groundY-camera.h*(gate?.78:.74)));
+  if(gate&&!cat.ground)targetY=Math.max(0,Math.min(targetY,cat.y-camera.h*.28));
   const ease=camera.snap?1:1-Math.exp(-dt*8);
   camera.x+=(targetX-camera.x)*ease;camera.y+=(targetY-camera.y)*ease;camera.snap=false;
   // Keep the cat visible during a drop or an unusually narrow viewport.
@@ -296,7 +304,76 @@ let atticRoofCanvas=null;
 let atticRoofSource=null;
 let atticVestibuleLayer=null;
 const ATTIC_BLEND=72;
-const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1};
+const mechanicLegacy=new Map();
+function upgradeMechanicRoutes(){
+  for(const i of [3,5,6,7,8]){
+    const l=LEVELS[i];
+    mechanicLegacy.set(i,{revision:levelRevision(i),fish:l.fish.map(f=>[...f])});
+    const gap=(index,size)=>{
+      const b=l.boards[index],next=l.boards[index+1],shift=b[0]+b[2]+size-next[0];
+      for(let j=index+1;j<l.boards.length;j++)l.boards[j][0]+=shift;
+    };
+    const zone=(first,last,speed)=>({from:l.boards[first][0]+15,to:l.boards[last][0]+l.boards[last][2],speed});
+    if(i===3){
+      l.boards[3][2]=240;gap(3,280);
+      l.boards[6][2]=210;gap(6,280);
+      l.boards[9][2]=200;gap(9,105);
+      l.winds=[zone(3,4,120),zone(6,7,110),zone(9,11,-90)];
+      l.mechanicGates=[{kind:'wind',from:3,to:4},{kind:'wind',from:6,to:7}];
+      l.mechanicNotes=[{kind:'headwind',from:9,to:10}];
+      l.sections[0].hint='先看风筒方向。顺风能把你送过长缺口，落点前松开方向修正。';
+      l.sections[1].hint='前面还有一段顺风长跳，先在宽木台上站稳。';
+      l.sections[2].hint='逆风会缩短跳跃。走近台边，再按住跳跃。';
+    }else if(i===5){
+      l.boards[4][2]=220;gap(4,240);l.boards[5][2]=220;gap(5,40);
+      gap(10,130);
+      l.winds=[zone(4,6,100),zone(10,12,-65)];
+      l.mechanicGates=[{kind:'wind',from:4,to:5}];
+      l.sections[1].hint='在蓝垫上长按跳跃，借顺风越过高桥前的长缺口。';
+      l.sections[3].hint='最后一跳迎风。靠近蓝垫前缘，按住跳跃。';
+    }else if(i===6){
+      l.boards[3][2]=360;gap(3,270);
+      l.boards[7][2]=300;gap(7,115);
+      l.traits[3].ice=l.traits[7].ice=true;
+      l.mechanicGates=[{kind:'ice',from:3,to:4}];
+      l.mechanicNotes=[{kind:'ice-brake',from:7,to:8}];
+      l.sections[1].hint='在薄霜上滑行蓄速，从前缘长跳，越过长缺口。';
+      l.sections[2].hint='下一片霜面后落点较近，提前松方向，按反向刹车。';
+    }else if(i===7){
+      l.boards[3][2]=260;l.traits[3].belt=140;gap(3,270);
+      l.boards[6][2]=300;l.traits[6].belt=-115;gap(6,90);
+      l.boards[10][2]=240;l.traits[10].belt=160;gap(10,250);
+      l.mechanicGates=[{kind:'belt',from:3,to:4},{kind:'belt',from:10,to:11}];
+      l.mechanicNotes=[{kind:'reverse-belt',from:6,to:7}];
+      l.sections[1].hint='顺向帆布会给起跳带来惯性。从前缘长跳，越过长缺口。';
+      l.sections[2].hint='这台向左运粮，起跳也会带上向左惯性。先走到前缘，再向右跳。';
+      l.sections[3].hint='借顺向带长跳，接近下一块木台时松开方向。';
+    }else{
+      l.boards[3][2]=360;gap(3,270);
+      l.boards[6][2]=220;l.traits[6].belt=-115;gap(6,90);
+      l.mechanicGates=[{kind:'ice',from:3,to:4}];
+      l.mechanicNotes=[{kind:'reverse-belt',from:6,to:7}];
+      l.sections[0].hint='沿外廊滑行蓄速，借霜面速度跳过长缺口。';
+      l.sections[1].hint='逆向帆布会拖慢起跳。先走近右边缘，再跳上木台。';
+    }
+    for(const section of l.sections)section.x=l.boards[section.board][0];
+    l.fish=l.sections.slice(1).map(s=>{const b=l.boards[s.board];return [b[0]+b[2]*.65,b[1]-42]});
+    const end=l.boards[l.exit];l.width=end[0]+end[2];l.finishX=l.width-55;l.hint=l.sections[0].hint;
+  }
+  const approach=LEVELS[6],mill=LEVELS[7],attic=LEVELS[8];
+  const roomEdges=[0,660,(mill.boards[8][0]+mill.boards[8][2]+mill.boards[9][0])/2,
+    (mill.boards[12][0]+mill.boards[12][2]+mill.boards[13][0])/2,mill.width];
+  MILL_ROOMS.forEach((room,i)=>Object.assign(room,{from:roomEdges[i],to:roomEdges[i+1]}));
+  const outsideEdges=[0,approach.boards[3][0],approach.boards[7][0],approach.boards[11][0],approach.width];
+  MILL_JOURNEYS[6].forEach((room,i)=>Object.assign(room,{from:outsideEdges[i],to:outsideEdges[i+1]}));
+  ATTIC_SHELL.left=attic.boards[5][0]-30;ATTIC_SHELL.right=attic.boards[9][0]+attic.boards[9][2]+10;
+  ATTIC_SHELL.peakX=(ATTIC_SHELL.left+ATTIC_SHELL.right)/2;
+  MILL_JOURNEYS[8][0].to=ATTIC_SHELL.left;
+  Object.assign(MILL_JOURNEYS[8][1],{from:ATTIC_SHELL.left,to:ATTIC_SHELL.right});
+  Object.assign(MILL_JOURNEYS[8][2],{from:ATTIC_SHELL.right,to:attic.width});
+}
+upgradeMechanicRoutes();
+const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1,windVx:0,launchVx:0,airCruise:240};
 // Presentation follows the real movement; it never changes the collision body.
 const catMotion={stride:0,idle:0,turn:0,brake:0,dust:0,launch:0};
 function resetCatMotion(){Object.assign(catMotion,{stride:0,idle:0,turn:0,brake:0,dust:0,launch:0});}
@@ -342,6 +419,7 @@ function rememberRun(){
 function rememberFish(){
   const record=records[levelIndex]||{fish:[]};
   record.fish=[...new Set([...record.fish,...fish.filter(f=>f.got).map(f=>fishKey([f.x,f.y]))])];
+  record.revision=levelRevision(levelIndex);
   records[levelIndex]=record;
 }
 function formatTime(seconds){
@@ -384,12 +462,20 @@ try {
       const record=saved.records?.[i];
       if(record&&typeof record==='object'){
         const known=new Set(item.fish.map(fishKey));
-        records[i]={fish:Array.isArray(record.fish)?[...new Set(record.fish.filter(key=>known.has(key)))]:[]};
-        if(Number.isFinite(record.bestTime)&&record.bestTime>=0)records[i].bestTime=record.bestTime;
-        if(Number.isInteger(record.bestDeaths)&&record.bestDeaths>=0)records[i].bestDeaths=record.bestDeaths;
+        const legacy=mechanicLegacy.get(i);
+        const collected=Array.isArray(record.fish)?record.fish.map(key=>{
+          if(known.has(key))return key;
+          const old=legacy?.fish.findIndex(f=>fishKey(f)===key)??-1;
+          return old>=0?fishKey(item.fish[old]):null;
+        }).filter(key=>key&&known.has(key)):[];
+        records[i]={fish:[...new Set(collected)],revision:levelRevision(i)};
+        const comparable=!legacy||record.revision===levelRevision(i);
+        if(comparable&&Number.isFinite(record.bestTime)&&record.bestTime>=0)records[i].bestTime=record.bestTime;
+        if(comparable&&Number.isInteger(record.bestDeaths)&&record.bestDeaths>=0)records[i].bestDeaths=record.bestDeaths;
       }
       if(isLevelUnlocked(i)&&saved.runs?.[i]){
-        runs[i]=saved.runs[i];
+        const old=mechanicLegacy.get(i);
+        runs[i]=old&&saved.runs[i].revision===old.revision?{...saved.runs[i],revision:levelRevision(i),upgraded:true}:saved.runs[i];
         if(!resumableRun(i))delete runs[i];
       }
     });
@@ -423,8 +509,8 @@ function unlockAudio(){
   try{audio ||= new (window.AudioContext||window.webkitAudioContext)();audio.resume().catch(()=>{});}catch{}
 }
 function cue(name){if(soundscape)soundscape.cue(name);else sound(name==='fall'?130:650,.12);}
-function isMillRoom(x){return levelIndex===7||(levelIndex===8&&x>=1120&&x<2260);}
-function usesMillDeck(b){return levelIndex===7||(levelIndex===8&&b?.x>=1120&&b.x<2940);}
+function isMillRoom(x){return levelIndex===7||(levelIndex===8&&x>=ATTIC_SHELL.left&&x<ATTIC_SHELL.right);}
+function usesMillDeck(b){return levelIndex===7||(levelIndex===8&&b?.x>=ATTIC_SHELL.left&&b.x<LEVELS[8].boards[13][0]);}
 function chapterAtmosphere(){return isMillRoom(cat.x)?'mill':['forest','harbor','roof'][worldIndex()];}
 function surfaceMaterial(b){return b?.ice?'ice':b?.spring?'soft':b?.belt?'canvas':usesMillDeck(b)||worldIndex()===1||b?.fragile?'wood':worldIndex()===2?'tile':'grass';}
 function updateMillMoment(dt){
@@ -456,7 +542,7 @@ function hud(){
 }
 function spawn(){
   const p=boards[checkpoint<0?0:checkpoint];
-  Object.assign(cat,{x:p.x+25,y:p.y-cat.h,vx:0,vy:0,ground:true,face:1});
+  Object.assign(cat,{x:p.x+25,y:p.y-cat.h,vx:0,vy:0,ground:true,face:1,windVx:0,launchVx:0,airCruise:240});
   cat.support=checkpoint<0?0:checkpoint;
   for(const b of boards)b.crack=-1;
   clearInput();resetCatMotion();coyote=.1;deathDelay=0;landing=0;lastFallWasBridge=false;
@@ -550,6 +636,7 @@ function pause(){
 }
 function showSaveNote(){
   $('saveNote').textContent=checkpoint<0?'重新打开可从本关起点继续':'重新打开可从第 '+level.checks.filter(i=>i<=checkpoint).length+' 盏路灯继续';
+  if(runs[levelIndex]?.upgraded)$('saveNote').textContent='已接回新版对应路灯，计时与鱼干进度已保留';
   if(!storageAvailable)$('saveNote').textContent='当前浏览器无法保存，关闭页面会丢失本次进度。';
   $('saveNote').hidden=false;
 }
@@ -563,23 +650,32 @@ function update(dt){
   buffer=Math.max(0,buffer-dt);coyote=cat.ground?.10:Math.max(0,coyote-dt);
   const axis=Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA'));
   const surface=cat.ground?boards[cat.support]:null;
+  const wasGround=cat.ground;
   const previousVx=cat.vx,previousFace=cat.face;
-  const target=axis*240, acceleration=cat.ground?(surface?.ice?(axis?650:180):2400):1800;
+  const target=axis*(cat.ground?(surface?.ice?320:240):(cat.airCruise||240));
+  const acceleration=cat.ground?(surface?.ice?(axis?260:48):2400):1800;
   cat.vx+=Math.max(-acceleration*dt,Math.min(acceleration*dt,target-cat.vx));if(axis)cat.face=axis;
-  if(buffer>0&&coyote>0){cat.vy=surface?.spring?-700:-530;cat.ground=false;catMotion.launch=.12;coyote=0;buffer=0;burst(cat.x+12,cat.y+30,surface?.spring?'#83c7d1':'#ddd2b1',7);cue(surface?.spring?'spring':'jump');}
+  if(buffer>0&&coyote>0){
+    if(wasGround){cat.launchVx=surface?.belt||0;cat.airCruise=surface?.ice?Math.max(240,Math.abs(cat.vx)):240;}
+    cat.vy=surface?.spring?-700:-530;cat.ground=false;catMotion.launch=.12;coyote=0;buffer=0;burst(cat.x+12,cat.y+30,surface?.spring?'#83c7d1':'#ddd2b1',7);cue(surface?.spring?'spring':'jump');
+  }
   if(!jumpHeld&&cat.vy<-210)cat.vy=-210;
   cat.vy+=1200*dt;
   const wind=level.winds.find(z=>cat.x>z.from&&cat.x<z.to);
-  const drift=cat.ground?(surface?.belt||0):(wind?.speed||0);
+  if(!cat.ground){cat.windVx+=((wind?.speed||0)-cat.windVx)*(1-Math.exp(-dt*7));cat.launchVx*=Math.exp(-dt*.85);}
+  const drift=cat.ground?(surface?.belt||0):(cat.windVx+cat.launchVx);
   cat.x=Math.max(0,Math.min(W-cat.w,cat.x+(cat.vx+drift)*dt));
   const previousBottom=cat.y+cat.h,fallSpeed=cat.vy;cat.y+=cat.vy*dt;cat.ground=false;
   for(let i=0;i<boards.length;i++){
     const b=boards[i];if(b.crack>=0)b.crack+=dt;if(b.crack>crumbleDelay(b))continue;
     if(cat.x+cat.w>b.x+2&&cat.x<b.x+b.w-2&&previousBottom<=b.y+.5&&cat.y+cat.h>=b.y&&cat.vy>=0){
       cat.y=b.y-cat.h;cat.vy=0;cat.ground=true;cat.support=i;
+      cat.windVx=0;cat.launchVx=0;cat.airCruise=240;
       if(b.spring)teach('spring','在蓝色软垫上按住跳跃，可以跳得更高。');
-      if(b.ice)teach('ice','薄霜会滑。轻按反方向，可以更快停下。');
-      if(b.belt)teach('belt',usesMillDeck(b)?'浅色帆布运粮带会带你走，跳到木台就能停稳。':'箭头屋瓦会推着你走，起跳就能离开它。');
+      if(b.ice)teach('ice','薄霜能滑行蓄速，长跳跨过大缺口；提前松方向、按反向刹车。');
+      const gate=level.mechanicGates?.find(g=>g.from===i);
+      if(gate)teach('mechanic-'+i,gate.kind==='wind'?'前面是顺风长跳。走近台边，按住跳跃，接近落点松方向。':gate.kind==='ice'?'先在霜面滑行蓄速，再从前缘长跳。': '先借顺向带的速度，再从前缘长跳，落点前松方向。');
+      if(b.belt)teach('belt',usesMillDeck(b)?'帆布的速度会带进起跳。顺向跳得更远，逆向要靠近前缘。':'箭头屋瓦会推着你走，起跳就能离开它。');
       if(fallSpeed>150){landing=Math.min(.075,fallSpeed/800*.075);if(worldIndex()===2)millLandingFeedback(b,fallSpeed);else burst(cat.x+12,b.y,'#e4d5b6',8);if(soundscape)soundscape.surface(surfaceMaterial(b),Math.min(1.5,fallSpeed/450));else sound(180,.045,'triangle');}
       if(b.source===0&&b.local===1)teach('jump','跳得不错。前面的路灯可以歇脚。');
       if(b.fragile&&b.crack<0){
@@ -595,6 +691,9 @@ function update(dt){
       if(levelIndex===0&&i===level.rescue)teach('rescue','接住你了。从右边的小台阶回去就好。');
       if(i===exitIndex()&&cat.x>(level.finishX??b.x+24)){finish();return;}
     }
+  }
+  if(wasGround&&!cat.ground&&catMotion.launch===0){
+    cat.launchVx=surface?.belt||0;cat.airCruise=surface?.ice?Math.max(240,Math.abs(cat.vx)):240;
   }
   updateCatMotion(dt,axis,previousVx,previousFace);
   updateMillMoment(dt);
@@ -782,6 +881,8 @@ function millLitSurface(w,h,paint,toLocal,material='wood'){
     millReceiverCanvas=document.createElement('canvas');
     millReceiverCanvas.width=1024;millReceiverCanvas.height=256;
   }
+  if(millReceiverCanvas.width<Math.ceil(w*4))millReceiverCanvas.width=Math.ceil(w*4);
+  if(millReceiverCanvas.height<Math.ceil(h*4))millReceiverCanvas.height=Math.ceil(h*4);
   const c=millReceiverCanvas.getContext('2d'),density=4;
   c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,Math.ceil(w*density),Math.ceil(h*density));
   c.save();c.scale(density,density);paint(c);
@@ -1362,7 +1463,7 @@ function drawMillJourneyFraming(){
 function drawMillOutdoorAir(){
   if(levelIndex!==6&&levelIndex!==8)return;
   ctx.save();ctx.beginPath();
-  if(levelIndex===8){ctx.rect(0,0,1120,H);ctx.rect(2260,0,W-2260,H);}else ctx.rect(0,0,W,H);
+  if(levelIndex===8){ctx.rect(0,0,ATTIC_SHELL.left,H);ctx.rect(ATTIC_SHELL.right,0,W-ATTIC_SHELL.right,H);}else ctx.rect(0,0,W,H);
   ctx.clip();ctx.fillStyle='rgba(25,42,69,.055)';ctx.fillRect(camera.x,0,camera.w,H);
   // Quiet silver drift belongs outdoors. It never continues through the attic wall.
   for(let tile=Math.floor(camera.x/700);tile<=Math.floor((camera.x+camera.w)/700);tile++){
@@ -1384,8 +1485,8 @@ function drawPaintedBackdrop(){
     // One exterior panorama retains the painted proportions across the journey.
     const width=Math.max(990,camera.w+(W-camera.w)*.18);
     ctx.drawImage(image,camera.x*.82,-110,width,width*2/3);
-    if(levelIndex===8&&camera.x+camera.w>1120&&camera.x<2260&&illustrations.mill){
-      ctx.save();ctx.beginPath();ctx.rect(1120,0,1140,H);ctx.clip();
+    if(levelIndex===8&&camera.x+camera.w>ATTIC_SHELL.left&&camera.x<ATTIC_SHELL.right&&illustrations.mill){
+      ctx.save();ctx.beginPath();ctx.rect(ATTIC_SHELL.left,0,ATTIC_SHELL.right-ATTIC_SHELL.left,H);ctx.clip();
       drawRepeatingBackdrop(illustrations.mill);ctx.restore();
     }
     return;
@@ -1456,6 +1557,19 @@ function drawLessonSigns(){
   sceneLabel('歇歇脚',453,318,{center:true,important:true});
   sceneLabel('有裂纹…',641,340,{tone:'warning',center:true,important:true});
   sceneLabel('小路也能回家 →',635,510,{center:true,important:true});
+}
+function drawMechanicGuides(){
+  const labels={wind:'借顺风长跳 →',ice:'滑行蓄速再跳 →',belt:'借传送惯性跳 →',headwind:'逆风要靠前缘 →','ice-brake':'近落点，提前收速 →','reverse-belt':'逆向带，靠前缘跳 →'};
+  for(const gate of [...level.mechanicGates||[],...level.mechanicNotes||[]]){
+    const from=boards[gate.from],to=boards[gate.to];
+    if(to.x<camera.x-80||from.x>camera.x+camera.w+80)continue;
+    if((gate.kind==='wind'||gate.kind==='headwind')&&illustrations.windsock){
+      const x=from.x+28,y=from.y-105;
+      line(ctx,[[x,y],[x,from.y]],'#79634c',2.8);drawPaintedWindsock(x,y);
+    }
+    sceneLabel(labels[gate.kind],from.x+from.w*.48,from.y-68,{center:true,important:true});
+    sceneLabel('落点 ↓',to.x+Math.min(40,to.w*.25),to.y-38,{center:true});
+  }
 }
 function catPresentation(){
   const speed=Math.abs(cat.vx),walking=cat.ground&&speed>20;
@@ -1600,7 +1714,7 @@ function drawHarborLandmarks(){
   for(const [x,y,label] of [[300,375,'登船 →'],[1170,185,'货仓'],[1850,165,'沿高桥去灯塔 →'],[2480,265,'站稳，再跳']])sceneLabel(label,x,y,{center:true,important:true});
 }
 function drawPaintedWindsock(x,y){
-  const direction=Math.sign(level.winds[0]?.speed||1);
+  const direction=Math.sign(level.winds.find(z=>x>=z.from-40&&x<z.to)?.speed||level.winds[0]?.speed||1);
   ctx.save();ctx.translate(x,y);ctx.scale(direction,1+Math.sin(time*2)*.025);ctx.rotate(Math.sin(time*2)*.025);
   ctx.drawImage(illustrations.windsock,90,335,1380,400,-5.5,-12.925,75.9,22);ctx.restore();
 }
@@ -1793,7 +1907,8 @@ function draw(dt=1/60){
   for(const zone of level.winds){
     ctx.globalAlpha=.5;const direction=Math.sign(zone.speed);
     for(let i=0;i<18;i++){
-      const x=zone.from+10+((i*71+direction*time*32)%380+380)%380,y=215+(i%5)*50;
+      const span=Math.max(20,zone.to-zone.from-20);
+      const x=zone.from+10+((i*span/18+direction*time*(25+Math.abs(zone.speed)*.35))%span+span)%span,y=215+(i%5)*50;
       line(ctx,[[x,y],[x+direction*20,y],[x+direction*15,y-3]],illustrations.harbor?'#668f9c':'#e5f3f3',1.4);
     }ctx.globalAlpha=1;
     sceneLabel(zone.speed>0?'顺风区 →':'← 逆风区',zone.from+20,300,{important:true});
@@ -1801,6 +1916,7 @@ function draw(dt=1/60){
   boards.forEach(drawBoard);
   drawMillGrain();
   drawLessonSigns();
+  drawMechanicGuides();
   for(const [x,y,w] of level.thorns){for(let j=0;j<w;j+=10){ctx.fillStyle='#a76050';ctx.beginPath();ctx.moveTo(x+j,y+14);ctx.quadraticCurveTo(x+j+3,y+3,x+j+7,y);ctx.lineTo(x+j+10,y+14);ctx.fill();line(ctx,[[x+j+3,y+12],[x+j+7,y+3]],'#6b493f');}}
   const end=boards[exitIndex()];
   if(level.showcase){
