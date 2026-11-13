@@ -291,9 +291,11 @@ const MILL_JOURNEYS={
     {id:'bridge-home',from:2260,to:3180,asset:'millHomeward',top:-170}
   ]
 };
-const ATTIC_SHELL={left:1120,right:2260,peakX:1690,eaveY:175,peakY:85,depth:20,entryFloor:350,exitFloor:375};
+const ATTIC_SHELL={left:1120,right:2260,peakX:1690,eaveY:135,peakY:45,depth:20,entryFloor:350,exitFloor:375};
 let atticRoofCanvas=null;
 let atticRoofSource=null;
+let atticVestibuleLayer=null;
+const ATTIC_BLEND=72;
 const cat={x:45,y:420,w:23,h:30,vx:0,vy:0,ground:true,face:1};
 // Presentation follows the real movement; it never changes the collision body.
 const catMotion={stride:0,idle:0,turn:0,brake:0,dust:0,launch:0};
@@ -1204,12 +1206,21 @@ function drawAtticShell(){
   // Wall end sections sit above and below the passage, leaving the cat's route open.
   for(const [x,floor,inward] of [[s.left,s.entryFloor,1],[s.right,s.exitFloor,-1]]){
     if(x<camera.x-100||x>camera.x+camera.w+100)continue;
-    const wallX=x-13,bottom=floor+18;
-    ctx.drawImage(image,205,530,100,475,wallX,bottom,26,H-bottom);
-    ctx.drawImage(image,205,530,100,50,wallX,s.eaveY+s.depth-4,26,14);
-    const reveal=ctx.createLinearGradient(x,0,x+inward*22,0);
-    reveal.addColorStop(0,'rgba(18,25,32,.34)');reveal.addColorStop(1,'rgba(18,25,32,0)');
-    ctx.fillStyle=reveal;ctx.fillRect(Math.min(x,x+inward*22),s.eaveY+s.depth+10,22,floor-s.eaveY-s.depth-10);
+    const wallTop=s.eaveY+s.depth-4,bottom=floor+18,frontLeft=x-16;
+    // The seam is a masonry corner tied to roof and foundations, in the back plane.
+    // Tile actual painted stone courses rather than stretching a single tall block.
+    ctx.save();ctx.beginPath();
+    ctx.moveTo(frontLeft,wallTop);ctx.lineTo(x+16,wallTop+3);ctx.lineTo(x+16,H);ctx.lineTo(frontLeft,H);ctx.closePath();ctx.clip();
+    for(let y=wallTop;y<H;y+=32)ctx.drawImage(image,205,600,100,100,frontLeft,y,32,33);
+    ctx.restore();
+    const backX=x+inward*38,faceX=x+inward*16;
+    ctx.save();ctx.beginPath();ctx.moveTo(faceX,wallTop+3);ctx.lineTo(backX,wallTop+13);
+    ctx.lineTo(backX,H);ctx.lineTo(faceX,H);ctx.closePath();ctx.clip();
+    for(let y=wallTop;y<H;y+=32)ctx.drawImage(image,205,700,100,100,Math.min(faceX,backX),y,22,33);
+    ctx.fillStyle='rgba(22,33,43,.38)';ctx.fillRect(Math.min(faceX,backX),wallTop,22,H-wallTop);ctx.restore();
+    const reveal=ctx.createLinearGradient(backX,0,x+inward*(ATTIC_BLEND+25),0);
+    reveal.addColorStop(0,'rgba(18,25,32,.36)');reveal.addColorStop(1,'rgba(18,25,32,0)');
+    ctx.fillStyle=reveal;ctx.fillRect(Math.min(backX,x+inward*(ATTIC_BLEND+25)),wallTop+13,ATTIC_BLEND-13,H-wallTop-13);
     ctx.globalAlpha=.18;
     ctx.fillStyle='#142130';ctx.fillRect(x+(inward>0?13:-21),bottom,8,H-bottom);
     ctx.globalAlpha=1;
@@ -1290,17 +1301,54 @@ function drawMillJourneyBackdrop(){
     const width=Math.max(990,camera.w+(W-camera.w)*.18);
     ctx.drawImage(fallback,camera.x*.82,-110,width,width*2/3);
   }
-  for(const room of rooms){
-    if(room.to<camera.x||room.from>camera.x+camera.w)continue;
+  const ordered=levelIndex===8?[...rooms.filter(r=>!r.inside),...rooms.filter(r=>r.inside)]:rooms;
+  for(const room of ordered){
+    const clipFrom=levelIndex===8&&!room.inside&&room.from===ATTIC_SHELL.right?room.from-ATTIC_BLEND:room.from;
+    const clipTo=levelIndex===8&&!room.inside&&room.to===ATTIC_SHELL.left?room.to+ATTIC_BLEND:room.to;
+    if(clipTo<camera.x||clipFrom>camera.x+camera.w)continue;
     const frame=millRoomFrame(room),image=illustrations[room.asset]||(room.inside?illustrations.mill:null)||fallback;
     const sw=image.naturalWidth||1536,sh=image.naturalHeight||1024,inset=room.inset||0;
-    ctx.save();ctx.beginPath();ctx.rect(room.from,0,room.to-room.from,H);ctx.clip();
+    ctx.save();ctx.beginPath();ctx.rect(clipFrom,0,clipTo-clipFrom,H);ctx.clip();
     if(room.inside)clipAtticInterior();
     if(room.mirror){ctx.translate(frame.x+frame.w,0);ctx.scale(-1,1);}
-    ctx.drawImage(image,sw*inset,0,sw*(1-inset*2),sh,room.mirror?0:frame.x,frame.y,frame.w,frame.h);
+    if(room.inside&&(camera.x<room.from+ATTIC_BLEND||camera.x+camera.w>room.to-ATTIC_BLEND)){
+      const layer=atticVestibuleBackground(room,frame,image,sw,sh,inset);
+      ctx.drawImage(layer,room.from,0,room.to-room.from,H);
+    }else if(room.inside){
+      ctx.drawImage(image,sw*inset,0,sw*(1-inset*2),sh,frame.x,frame.y,frame.w,frame.h);
+    }else if(levelIndex===8){
+      const paint=(from,to,alpha)=>{
+        ctx.save();ctx.beginPath();ctx.rect(from,0,to-from,H);ctx.clip();ctx.globalAlpha=alpha;
+        ctx.drawImage(image,sw*inset,0,sw*(1-inset*2),sh,frame.x,frame.y,frame.w,frame.h);ctx.restore();
+      };
+      paint(room.from,room.to,1);
+      // Feather only the back-wall extension. The masonry corner and roof remain sharp.
+      for(let i=0;i<8;i++){
+        const t=(i+.5)/8,smooth=t*t*(3-2*t),step=ATTIC_BLEND/8;
+        if(room.to===ATTIC_SHELL.left)paint(room.to+i*step,room.to+(i+1)*step,1-smooth);
+        if(room.from===ATTIC_SHELL.right)paint(room.from-ATTIC_BLEND+i*step,room.from-ATTIC_BLEND+(i+1)*step,smooth);
+      }
+    }else ctx.drawImage(image,sw*inset,0,sw*(1-inset*2),sh,room.mirror?0:frame.x,frame.y,frame.w,frame.h);
     ctx.restore();
   }
   return true;
+}
+function atticVestibuleBackground(room,frame,image,sw,sh,inset){
+  const density=1.5,width=room.to-room.from;
+  if(!atticVestibuleLayer){
+    atticVestibuleLayer=document.createElement('canvas');
+    atticVestibuleLayer.width=width*density;atticVestibuleLayer.height=H*density;
+  }
+  const c=atticVestibuleLayer.getContext('2d');
+  c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,atticVestibuleLayer.width,atticVestibuleLayer.height);
+  c.save();c.scale(density,density);
+  c.drawImage(image,sw*inset,0,sw*(1-inset*2),sh,frame.x-room.from,frame.y,frame.w,frame.h);
+  c.globalCompositeOperation='destination-in';
+  const fade=c.createLinearGradient(0,0,width,0);
+  fade.addColorStop(0,'rgba(255,255,255,0)');fade.addColorStop(ATTIC_BLEND/width,'#fff');
+  fade.addColorStop(1-ATTIC_BLEND/width,'#fff');fade.addColorStop(1,'rgba(255,255,255,0)');
+  c.fillStyle=fade;c.fillRect(0,0,width,H);c.restore();
+  return atticVestibuleLayer;
 }
 function drawMillJourneyFraming(){
   if(levelIndex!==6||!illustrations.millExterior)return;
